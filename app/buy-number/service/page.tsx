@@ -1,49 +1,53 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { getIdToken } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+
+import { auth, db } from "@/lib/firebase";
 
 type ServiceData = {
   country: string;
   serviceName: string;
   serviceId: string | number;
-  pool: string | number;
-  livePrice?: string | number | null;
+  pool?: string | number;
+  livePrice?: number;
+  costPrice?: number;
+  margin?: number;
 };
 
 export default function ServicePage() {
-  const router = useRouter();
-
   const [serviceData, setServiceData] =
     useState<ServiceData | null>(null);
 
   const [buying, setBuying] = useState(false);
-  const [checkingOtp, setCheckingOtp] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
-  const [number, setNumber] = useState("");
-  const [orderId, setOrderId] = useState("");
-  const [otp, setOtp] = useState("");
-  const [message, setMessage] = useState("");
-
-  const [popup, setPopup] = useState("");
+  const [popup, setPopup] = useState<{
+    title: string;
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
 
   useEffect(() => {
     const loadService = async () => {
       try {
-        const saved = localStorage.getItem(
-          "selectedService"
-        );
+        const stored =
+          localStorage.getItem("selectedService");
 
-        if (!saved) {
-          setPopup(
-            "Service information could not be found."
-          );
+        if (!stored) {
+          setPopup({
+            title: "Service Unavailable",
+            message:
+              "We couldn't load the selected service. Please go back and select it again.",
+            type: "error",
+          });
           return;
         }
 
-        const selected = JSON.parse(saved);
+        const selected = JSON.parse(stored);
 
-        setServiceData(selected);
+        console.log("Selected Service:", selected);
 
         const response = await fetch("/api/pricing", {
           method: "POST",
@@ -55,72 +59,177 @@ export default function ServicePage() {
             service: selected.serviceId,
             pool: selected.pool,
           }),
+          cache: "no-store",
         });
 
         const price = await response.json();
 
-        if (price?.success) {
+        console.log("Pricing result:", price);
+
+        if (!response.ok || !price.success) {
           setServiceData({
             ...selected,
-            livePrice: price.price,
-            pool: price.pool ?? selected.pool,
+            livePrice: undefined,
           });
+          return;
         }
+
+        setServiceData({
+          ...selected,
+          livePrice: Number(price.price),
+          costPrice: Number(price.costPrice),
+          margin: Number(price.margin),
+          pool: price.pool,
+        });
       } catch (error) {
         console.error("Pricing error:", error);
 
-        setPopup(
-          "We couldn't load the service information."
-        );
+        setPopup({
+          title: "Unable to Load Service",
+          message:
+            "We couldn't load the service information right now. Please try again later.",
+          type: "error",
+        });
       }
     };
 
     loadService();
-
-    const savedOrder =
-      localStorage.getItem("activeOtpOrder");
-
-    if (savedOrder) {
-      try {
-        const order = JSON.parse(savedOrder);
-
-        setNumber(order.number || "");
-        setOrderId(String(order.orderId || ""));
-      } catch {
-        localStorage.removeItem("activeOtpOrder");
-      }
-    }
   }, []);
 
+  const loadWalletBalance = async () => {
+    const user = auth.currentUser;
+
+    if (!user) {
+      return null;
+    }
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        return null;
+      }
+
+      const data = userSnap.data();
+
+      const balance = Number(data.balance || 0);
+
+      setWalletBalance(balance);
+
+      return balance;
+    } catch (error) {
+      console.error("Wallet balance error:", error);
+      return null;
+    }
+  };
+
   const handleBuyNumber = async () => {
+    if (buying) return;
+
+    const user = auth.currentUser;
+
+    if (!user) {
+      setPopup({
+        title: "Login Required",
+        message:
+          "Please log in to your account before purchasing a number.",
+        type: "info",
+      });
+      return;
+    }
+
     if (!serviceData) {
-      setPopup(
-        "Service information is still loading."
-      );
+      setPopup({
+        title: "Please Wait",
+        message:
+          "Service information is still loading. Please try again in a moment.",
+        type: "info",
+      });
       return;
     }
 
     if (!serviceData.serviceId) {
-      setPopup(
-        "This service is currently unavailable."
-      );
+      setPopup({
+        title: "Service Error",
+        message:
+          "This service could not be identified. Please select the service again.",
+        type: "error",
+      });
       return;
     }
 
     if (
       serviceData.pool === undefined ||
-      serviceData.pool === null
+      serviceData.pool === null ||
+      serviceData.pool === ""
     ) {
-      setPopup(
-        "Number availability information is missing."
-      );
+      setPopup({
+        title: "Service Unavailable",
+        message:
+          "This number pool is currently unavailable. Please try another service.",
+        type: "error",
+      });
+      return;
+    }
+
+    const price = Number(serviceData.livePrice);
+
+    if (!Number.isFinite(price) || price <= 0) {
+      setPopup({
+        title: "Price Unavailable",
+        message:
+          "The current price could not be loaded. Please try again later.",
+        type: "error",
+      });
       return;
     }
 
     try {
       setBuying(true);
-      setPopup("");
-      setMessage("");
+
+      /*
+       * Check the customer's wallet balance first.
+       */
+      const balance = await loadWalletBalance();
+
+      if (balance === null) {
+        setPopup({
+          title: "Wallet Unavailable",
+          message:
+            "We couldn't verify your wallet balance. Please try again.",
+          type: "error",
+        });
+        return;
+      }
+
+      /*
+       * Do not allow a purchase when the wallet
+       * does not have enough money.
+       */
+      if (balance < price) {
+        setPopup({
+          title: "Insufficient Balance",
+          message:
+            `Your wallet balance is ₦${Math.floor(
+              balance
+            ).toLocaleString()}, but this number costs ₦${Math.ceil(
+              price
+            ).toLocaleString()}. Please fund your wallet and try again.`,
+          type: "error",
+        });
+        return;
+      }
+
+      console.log("Starting purchase:", {
+        country: serviceData.country,
+        service: serviceData.serviceId,
+        pool: serviceData.pool,
+        price,
+        walletBalance: balance,
+      });
+
+      const idToken = await getIdToken(user, true);
 
       const response = await fetch(
         "/api/buy-number",
@@ -128,100 +237,12 @@ export default function ServicePage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${idToken}`,
           },
           body: JSON.stringify({
             country: serviceData.country,
             service: serviceData.serviceId,
             pool: serviceData.pool,
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      console.log(
-        "Buy Number result:",
-        result
-      );
-
-      if (!response.ok || !result.success) {
-        setPopup(
-          result.message ||
-            "We couldn't complete the purchase. Please try again."
-        );
-        return;
-      }
-
-      const newNumber = String(
-        result.number || ""
-      );
-
-      const newOrderId = String(
-        result.orderId || ""
-      );
-
-      if (!newNumber || !newOrderId) {
-        setPopup(
-          "The number was purchased, but the order information was incomplete."
-        );
-        return;
-      }
-
-      setNumber(newNumber);
-      setOrderId(newOrderId);
-
-      localStorage.setItem(
-        "activeOtpOrder",
-        JSON.stringify({
-          number: newNumber,
-          orderId: newOrderId,
-          country: serviceData.country,
-          serviceName:
-            serviceData.serviceName,
-          serviceId: serviceData.serviceId,
-          pool: serviceData.pool,
-        })
-      );
-
-      setMessage(
-        "Number purchased successfully. Waiting for OTP..."
-      );
-    } catch (error) {
-      console.error(
-        "Buy Number error:",
-        error
-      );
-
-      setPopup(
-        "Something went wrong while purchasing the number. Please try again."
-      );
-    } finally {
-      setBuying(false);
-    }
-  };
-
-  const handleRefreshOtp = async () => {
-    if (!orderId) {
-      setPopup(
-        "There is no active order to check."
-      );
-      return;
-    }
-
-    try {
-      setCheckingOtp(true);
-      setPopup("");
-      setMessage("");
-
-      const response = await fetch(
-        "/api/otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            orderId,
           }),
           cache: "no-store",
         }
@@ -229,250 +250,186 @@ export default function ServicePage() {
 
       const result = await response.json();
 
-      console.log(
-        "OTP result:",
-        result
-      );
+      console.log("Buy Number result:", result);
 
       if (!response.ok || !result.success) {
-        setPopup(
-          result.message ||
-            "Unable to check for an OTP right now."
-        );
+        setPopup({
+          title: "Purchase Unavailable",
+          message:
+            result.message ||
+            "We couldn't complete your purchase right now. Please try again later.",
+          type: "error",
+        });
         return;
       }
 
-      if (result.code) {
-        setOtp(String(result.code));
-        setMessage(
-          "Your verification code has arrived."
-        );
-        return;
-      }
+      setPopup({
+        title: "Number Purchased",
+        message:
+          `Your number ${result.number || ""} has been purchased successfully.`,
+        type: "success",
+      });
 
-      if (result.fullMessage) {
-        setMessage(
-          result.fullMessage
-        );
-        return;
-      }
-
-      setMessage(
-        "No OTP received yet. Tap Refresh OTP again shortly."
-      );
+      /*
+       * Refresh the displayed wallet balance.
+       */
+      await loadWalletBalance();
     } catch (error) {
-      console.error(
-        "OTP refresh error:",
-        error
-      );
+      console.error("Buy Number error:", error);
 
-      setPopup(
-        "We couldn't check for a new OTP. Please try again."
-      );
+      setPopup({
+        title: "Purchase Failed",
+        message:
+          "Something went wrong while processing your purchase. Please try again.",
+        type: "error",
+      });
     } finally {
-      setCheckingOtp(false);
+      setBuying(false);
     }
   };
 
-  const handleClearOrder = () => {
-    setNumber("");
-    setOrderId("");
-    setOtp("");
-    setMessage("");
-
-    localStorage.removeItem(
-      "activeOtpOrder"
-    );
+  const closePopup = () => {
+    setPopup(null);
   };
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
 
-      {popup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+      <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg p-6">
 
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-              <span className="text-xl font-bold text-blue-600">
-                !
+        <h1 className="text-3xl font-bold text-blue-600 mb-6">
+          Service Details
+        </h1>
+
+        <div className="space-y-5">
+
+          <div>
+            <p className="text-gray-500 text-sm">
+              Country
+            </p>
+
+            <h2 className="text-xl font-semibold text-gray-900">
+              {serviceData?.country || "Loading..."}
+            </h2>
+          </div>
+
+          <div>
+            <p className="text-gray-500 text-sm">
+              Service
+            </p>
+
+            <h2 className="text-xl font-semibold text-gray-900">
+              {serviceData?.serviceName || "Loading..."}
+            </h2>
+          </div>
+
+          <div>
+            <p className="text-gray-500 text-sm">
+              Price
+            </p>
+
+            <h2 className="text-2xl font-bold text-green-600">
+              {serviceData?.livePrice
+                ? `₦${Math.ceil(
+                    Number(serviceData.livePrice)
+                  ).toLocaleString()}`
+                : "Loading..."}
+            </h2>
+          </div>
+
+          <div>
+            <p className="text-gray-500 text-sm">
+              Wallet Balance
+            </p>
+
+            <h2 className="text-xl font-bold text-gray-900">
+              {walletBalance !== null
+                ? `₦${Math.floor(
+                    walletBalance
+                  ).toLocaleString()}`
+                : "—"}
+            </h2>
+          </div>
+
+          <div>
+            <p className="text-gray-500 text-sm">
+              Status
+            </p>
+
+            <span className="text-green-600 font-semibold">
+              ● Available
+            </span>
+          </div>
+
+        </div>
+
+        <button
+          onClick={handleBuyNumber}
+          disabled={buying || !serviceData}
+          className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {buying
+            ? "Processing..."
+            : "Buy Number"}
+        </button>
+
+      </div>
+
+      {popup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5"
+          onClick={closePopup}
+        >
+          <div
+            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+
+            <div
+              className={`w-14 h-14 rounded-full flex items-center justify-center mb-5 ${
+                popup.type === "success"
+                  ? "bg-green-100"
+                  : popup.type === "info"
+                  ? "bg-blue-100"
+                  : "bg-red-100"
+              }`}
+            >
+              <span
+                className={`text-2xl font-bold ${
+                  popup.type === "success"
+                    ? "text-green-600"
+                    : popup.type === "info"
+                    ? "text-blue-600"
+                    : "text-red-600"
+                }`}
+              >
+                {popup.type === "success"
+                  ? "✓"
+                  : popup.type === "info"
+                  ? "i"
+                  : "!"}
               </span>
             </div>
 
-            <h2 className="mb-2 text-xl font-bold text-gray-900">
-              Lowkey OTP
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {popup.title}
             </h2>
 
-            <p className="mb-6 text-sm leading-6 text-gray-600">
-              {popup}
+            <p className="text-gray-600 leading-6">
+              {popup.message}
             </p>
 
             <button
-              onClick={() => setPopup("")}
-              className="w-full rounded-2xl bg-blue-600 py-3 font-semibold text-white active:scale-95"
+              onClick={closePopup}
+              className="w-full mt-6 bg-gray-900 text-white py-3.5 rounded-2xl font-bold hover:bg-black transition"
             >
-              Okay
+              Continue
             </button>
 
           </div>
         </div>
       )}
 
-      <div className="mx-auto max-w-md">
-
-        <button
-          onClick={() => router.back()}
-          className="mb-5 rounded-2xl bg-black px-5 py-3 font-semibold text-white"
-        >
-          Back
-        </button>
-
-        <div className="rounded-3xl bg-white p-6 shadow-lg">
-
-          <h1 className="mb-6 text-3xl font-bold text-blue-600">
-            {number
-              ? "OTP Verification"
-              : "Service Details"}
-          </h1>
-
-          {!number ? (
-            <>
-              <div className="space-y-5">
-
-                <div>
-                  <p className="text-sm text-gray-500">
-                    Country
-                  </p>
-
-                  <p className="text-xl font-semibold">
-                    {serviceData?.country ||
-                      "Loading..."}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500">
-                    Service
-                  </p>
-
-                  <p className="text-xl font-semibold">
-                    {serviceData?.serviceName ||
-                      "Loading..."}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500">
-                    Price
-                  </p>
-
-                  <p className="text-2xl font-bold text-green-600">
-                    {serviceData?.livePrice
-                      ? `₦${Math.ceil(
-                          Number(
-                            serviceData.livePrice
-                          )
-                        ).toLocaleString()}`
-                      : "Loading..."}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500">
-                    Status
-                  </p>
-
-                  <p className="font-semibold text-green-600">
-                    ● Available
-                  </p>
-                </div>
-
-              </div>
-
-              <button
-                onClick={handleBuyNumber}
-                disabled={
-                  buying ||
-                  !serviceData
-                }
-                className="mt-8 w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition active:scale-95 disabled:opacity-50"
-              >
-                {buying
-                  ? "Processing..."
-                  : "Buy Number"}
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="rounded-2xl bg-gray-50 p-5">
-
-                <p className="mb-2 text-sm text-gray-500">
-                  Your Number
-                </p>
-
-                <p className="text-2xl font-bold tracking-wide text-gray-900">
-                  {number}
-                </p>
-
-              </div>
-
-              <div className="mt-5 rounded-2xl bg-blue-50 p-5">
-
-                <p className="text-sm font-semibold text-blue-700">
-                  Order Status
-                </p>
-
-                <p className="mt-1 text-gray-700">
-                  {otp
-                    ? "OTP received"
-                    : "Waiting for OTP..."}
-                </p>
-
-              </div>
-
-              {otp && (
-                <div className="mt-5 rounded-2xl bg-green-50 p-5 text-center">
-
-                  <p className="text-sm font-semibold text-green-700">
-                    Verification Code
-                  </p>
-
-                  <p className="mt-2 text-4xl font-black tracking-[0.35em] text-green-700">
-                    {otp}
-                  </p>
-
-                </div>
-              )}
-
-              {message && (
-                <p className="mt-5 rounded-2xl bg-gray-50 p-4 text-center text-sm text-gray-600">
-                  {message}
-                </p>
-              )}
-
-              <button
-                onClick={handleRefreshOtp}
-                disabled={
-                  checkingOtp ||
-                  !orderId
-                }
-                className="mt-6 w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition active:scale-95 disabled:opacity-50"
-              >
-                {checkingOtp
-                  ? "Checking OTP..."
-                  : "Refresh OTP"}
-              </button>
-
-              <button
-                onClick={handleClearOrder}
-                className="mt-3 w-full rounded-2xl border border-gray-300 bg-white py-3 font-semibold text-gray-700"
-              >
-                Finish / Clear Order
-              </button>
-            </>
-          )}
-
-        </div>
-      </div>
     </main>
   );
 }
