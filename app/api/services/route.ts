@@ -46,9 +46,15 @@ pool: cheapest?.pool,
 
     return NextResponse.json(merged);
 
-  } catch (error) {
-    return NextResponse.json({
+ } catch (error) {
+  console.error("SMSPool error:", error);
+
+  return NextResponse.json(
+    {
       error: "Failed to fetch services",
-    });
-  }
+      details: String(error),
+    },
+    { status: 500 }
+  );
+}
 }
