@@ -9,6 +9,7 @@ export default function BuyNumberPage() {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [popup, setPopup] = useState("");
 
   const router = useRouter();
 
@@ -26,6 +27,9 @@ export default function BuyNumberPage() {
         setCountries(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Countries error:", error);
+        setPopup(
+          "We couldn't load the countries right now. Please try again."
+        );
       } finally {
         setLoading(false);
       }
@@ -38,11 +42,29 @@ export default function BuyNumberPage() {
     try {
       setLoadingServices(true);
       setSelectedCountry(country);
+      setServices([]);
 
-      const response = await fetch("/api/services");
+      const response = await fetch("/api/services", {
+        cache: "no-store",
+      });
+
       const data = await response.json();
 
-      const serviceList = Array.isArray(data) ? data : [];
+      if (!response.ok || !Array.isArray(data)) {
+        console.error("Services response:", data);
+
+        setServices([]);
+
+        setPopup(
+          "Services are temporarily unavailable. Please try again later."
+        );
+
+        return;
+      }
+
+      const serviceList = data.filter(
+        (service: any) => service && service.name
+      );
 
       serviceList.sort((a: any, b: any) =>
         String(a.name || "").localeCompare(
@@ -54,6 +76,10 @@ export default function BuyNumberPage() {
     } catch (error) {
       console.error("Services error:", error);
       setServices([]);
+
+      setPopup(
+        "We couldn't load the services right now. Please try again later."
+      );
     } finally {
       setLoadingServices(false);
     }
@@ -66,7 +92,9 @@ export default function BuyNumberPage() {
     );
 
     if (!service) {
-      alert(`${serviceName} is currently unavailable.`);
+      setPopup(
+        `${serviceName} is currently unavailable. Please choose another service.`
+      );
       return;
     }
 
@@ -127,63 +155,93 @@ export default function BuyNumberPage() {
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-4xl font-bold text-blue-600 mb-8">
+
+      {popup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+              <span className="text-2xl">!</span>
+            </div>
+
+            <h2 className="mb-2 text-xl font-bold text-gray-900">
+              Lowkey OTP
+            </h2>
+
+            <p className="mb-6 text-sm leading-6 text-gray-600">
+              {popup}
+            </p>
+
+            <button
+              onClick={() => setPopup("")}
+              className="w-full rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition active:scale-95"
+            >
+              Okay
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      <h1 className="mb-8 text-4xl font-bold text-blue-600">
         Buy OTP Number
       </h1>
 
       {!selectedCountry ? (
         <>
-          <h2 className="text-2xl font-bold mb-5">
+          <h2 className="mb-5 text-2xl font-bold">
             Select Country
           </h2>
 
           <div className="mb-8">
-            <h3 className="font-bold text-xl mb-4">
+            <h3 className="mb-4 text-xl font-bold">
               Popular Countries
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
+
               <button
                 onClick={() => fetchServices("1")}
-                className="bg-white p-4 rounded-xl shadow"
+                className="rounded-xl bg-white p-4 shadow transition active:scale-95"
               >
                 🇺🇸 USA
               </button>
 
               <button
                 onClick={() => fetchServices("2")}
-                className="bg-white p-4 rounded-xl shadow"
+                className="rounded-xl bg-white p-4 shadow transition active:scale-95"
               >
                 🇬🇧 UK
               </button>
 
               <button
                 onClick={() => fetchServices("43")}
-                className="bg-white p-4 rounded-xl shadow"
+                className="rounded-xl bg-white p-4 shadow transition active:scale-95"
               >
                 🇩🇪 Germany
               </button>
 
               <button
                 onClick={() => fetchServices("39")}
-                className="bg-white p-4 rounded-xl shadow"
+                className="rounded-xl bg-white p-4 shadow transition active:scale-95"
               >
                 🇳🇱 Netherlands
               </button>
 
               <button
                 onClick={() => fetchServices("8")}
-                className="bg-white p-4 rounded-xl shadow"
+                className="rounded-xl bg-white p-4 shadow transition active:scale-95"
               >
                 🇦🇫 Afghanistan
               </button>
 
               <button
                 onClick={() => fetchServices("24")}
-                className="bg-white p-4 rounded-xl shadow"
+                className="rounded-xl bg-white p-4 shadow transition active:scale-95"
               >
                 🇮🇳 India
               </button>
+
             </div>
           </div>
 
@@ -200,12 +258,12 @@ export default function BuyNumberPage() {
               setSelectedCountry("");
               setServices([]);
             }}
-            className="mb-5 bg-black text-white px-5 py-3 rounded-2xl"
+            className="mb-5 rounded-2xl bg-black px-5 py-3 text-white"
           >
             Back
           </button>
 
-          <h2 className="text-3xl font-bold mb-5">
+          <h2 className="mb-5 text-3xl font-bold">
             Services
           </h2>
 
@@ -215,6 +273,7 @@ export default function BuyNumberPage() {
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-4">
+
               {serviceNames.map((serviceName) => {
                 const available = services.some(
                   (s: any) =>
@@ -229,16 +288,17 @@ export default function BuyNumberPage() {
                       handleServiceClick(serviceName)
                     }
                     disabled={!available}
-                    className={`p-5 rounded-3xl shadow-sm transition ${
+                    className={`rounded-3xl p-5 shadow-sm transition ${
                       available
                         ? "bg-white text-black active:scale-95"
-                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "cursor-not-allowed bg-gray-200 text-gray-400"
                     }`}
                   >
                     {serviceName}
                   </button>
                 );
               })}
+
             </div>
           )}
         </>
