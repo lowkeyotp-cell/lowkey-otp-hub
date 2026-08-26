@@ -39,3 +39,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+otp-marketplace-firebase-adminsdk-fbsvc-ef1f74f7e5.json
