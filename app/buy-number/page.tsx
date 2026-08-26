@@ -12,13 +12,16 @@ export default function BuyNumberPage() {
 
   const router = useRouter();
 
+  const normalize = (value: any) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
   useEffect(() => {
     const fetchCountries = async () => {
       try {
         const response = await fetch("/api/countries");
         const data = await response.json();
-
-        console.log("Countries:", data);
 
         setCountries(Array.isArray(data) ? data : []);
       } catch (error) {
@@ -47,8 +50,6 @@ export default function BuyNumberPage() {
         )
       );
 
-      console.log("Services loaded:", serviceList);
-
       setServices(serviceList);
     } catch (error) {
       console.error("Services error:", error);
@@ -59,33 +60,15 @@ export default function BuyNumberPage() {
   };
 
   const handleServiceClick = (serviceName: string) => {
-    console.log("🔥 CLICK WORKS:", serviceName);
-
     const service = services.find(
       (s: any) =>
-        String(s.name || "").toLowerCase() ===
-        serviceName.toLowerCase()
+        normalize(s.name) === normalize(serviceName)
     );
 
     if (!service) {
-      console.log(
-        "Service not found:",
-        serviceName
-      );
-
-      alert(
-        `${serviceName} is currently unavailable.`
-      );
-
+      alert(`${serviceName} is currently unavailable.`);
       return;
     }
-
-    console.log("Selected real SMSPool service:", {
-      country: selectedCountry,
-      serviceName: service.name,
-      serviceId: service.ID,
-      pool: service.pool,
-    });
 
     localStorage.setItem(
       "selectedService",
@@ -99,6 +82,48 @@ export default function BuyNumberPage() {
 
     router.push("/buy-number/service");
   };
+
+  const serviceNames = [
+    "WhatsApp",
+    "Telegram",
+    "Discord",
+    "Facebook",
+    "Instagram",
+    "TikTok",
+    "Signal",
+    "Google",
+    "POF",
+    "Gmail",
+    "YouTube",
+    "X (Twitter)",
+    "Snapchat",
+    "Uber",
+    "Bolt",
+    "Airbnb",
+    "Amazon",
+    "eBay",
+    "Netflix",
+    "Spotify",
+    "PayPal",
+    "Binance",
+    "Bybit",
+    "Coinbase",
+    "OKX",
+    "Steam",
+    "Epic Games",
+    "PlayStation",
+    "Xbox",
+    "Yahoo",
+    "Microsoft",
+    "Apple",
+    "LinkedIn",
+    "Reddit",
+    "Tinder",
+    "Bumble",
+    "WeChat",
+    "LINE",
+    "Viber",
+  ];
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
@@ -180,8 +205,8 @@ export default function BuyNumberPage() {
             Back
           </button>
 
-          <h2 className="text-3xl font-bold mb-5 capitalize">
-            {selectedCountry} Services
+          <h2 className="text-3xl font-bold mb-5">
+            Services
           </h2>
 
           {loadingServices ? (
@@ -190,51 +215,11 @@ export default function BuyNumberPage() {
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              {[
-                "WhatsApp",
-                "Telegram",
-                "Discord",
-                "Facebook",
-                "Instagram",
-                "TikTok",
-                "Signal",
-                "Google",
-                "POF",
-                "Gmail",
-                "YouTube",
-                "X (Twitter)",
-                "Snapchat",
-                "Uber",
-                "Bolt",
-                "Airbnb",
-                "Amazon",
-                "eBay",
-                "Netflix",
-                "Spotify",
-                "PayPal",
-                "Binance",
-                "Bybit",
-                "Coinbase",
-                "OKX",
-                "Steam",
-                "Epic Games",
-                "PlayStation",
-                "Xbox",
-                "Yahoo",
-                "Microsoft",
-                "Apple",
-                "LinkedIn",
-                "Reddit",
-                "Tinder",
-                "Bumble",
-                "WeChat",
-                "LINE",
-                "Viber",
-              ].map((serviceName) => {
+              {serviceNames.map((serviceName) => {
                 const available = services.some(
                   (s: any) =>
-                    String(s.name || "").toLowerCase() ===
-                    serviceName.toLowerCase()
+                    normalize(s.name) ===
+                    normalize(serviceName)
                 );
 
                 return (
@@ -244,10 +229,10 @@ export default function BuyNumberPage() {
                       handleServiceClick(serviceName)
                     }
                     disabled={!available}
-                    className={`p-5 rounded-3xl shadow-sm ${
+                    className={`p-5 rounded-3xl shadow-sm transition ${
                       available
-                        ? "bg-white"
-                        : "bg-gray-200 text-gray-400"
+                        ? "bg-white text-black active:scale-95"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     }`}
                   >
                     {serviceName}
