@@ -8,53 +8,71 @@ export async function GET() {
       fetch(
         `https://api.smspool.net/service/retrieve_all?key=${apiKey}`
       ),
-      fetch(
-        "https://api.smspool.net/request/pricing",
-        {
-          method: "POST",
-          body: (() => {
-            const formData = new FormData();
-            formData.append("key", apiKey || "");
-            return formData;
-          })(),
-        }
-      ),
+      fetch("https://api.smspool.net/request/pricing", {
+        method: "POST",
+        body: (() => {
+          const formData = new FormData();
+          formData.append("key", apiKey || "");
+          return formData;
+        })(),
+      }),
     ]);
 
     const services = await servicesResponse.json();
-console.log(services[0]);
     const pricing = await pricingResponse.json();
 
-    const merged = services.map((service: any) => {
-const matches = pricing.filter(
-  (p: any) =>
-    Number(p.service) === Number(service.ID)
-);
+    console.log("SERVICES:", services);
+    console.log("PRICING:", pricing);
 
-const cheapest =
-  matches.sort(
-    (a: any, b: any) =>
-      Number(a.price) - Number(b.price)
-  )[0];
+    if (!Array.isArray(services)) {
+      return NextResponse.json(
+        {
+          error: "Services is not an array",
+          services,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!Array.isArray(pricing)) {
+      return NextResponse.json(
+        {
+          error: "Pricing is not an array",
+          pricing,
+        },
+        { status: 500 }
+      );
+    }
+
+    const merged = services.map((service: any) => {
+      const matches = pricing.filter(
+        (p: any) =>
+          Number(p.service) === Number(service.ID)
+      );
+
+      const cheapest = matches.sort(
+        (a: any, b: any) =>
+          Number(a.price) - Number(b.price)
+      )[0];
 
       return {
         ...service,
-       livePrice: cheapest?.price ?? "0",
-pool: cheapest?.pool,
+        livePrice: cheapest?.price ?? "0",
+        pool: cheapest?.pool ?? null,
       };
     });
 
     return NextResponse.json(merged);
 
- } catch (error) {
-  console.error("SMSPool error:", error);
+  } catch (error) {
+    console.error("SMSPool error:", error);
 
-  return NextResponse.json(
-    {
-      error: "Failed to fetch services",
-      details: String(error),
-    },
-    { status: 500 }
-  );
-}
+    return NextResponse.json(
+      {
+        error: "Failed to fetch services",
+        details: String(error),
+      },
+      { status: 500 }
+    );
+  }
 }
