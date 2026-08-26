@@ -8,19 +8,30 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Country and service are required",
+          message: "Please select a country and service.",
         },
         { status: 400 }
       );
     }
 
+    const apiKey = process.env.SMSPOOL_API_KEY;
+
+    if (!apiKey) {
+      console.error("SMSPool API key is not configured.");
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "This service is temporarily unavailable. Please try again later.",
+        },
+        { status: 500 }
+      );
+    }
+
     const formData = new FormData();
 
-    formData.append(
-      "key",
-      process.env.SMSPOOL_API_KEY || ""
-    );
-
+    formData.append("key", apiKey);
     formData.append("country", String(country));
     formData.append("service", String(service));
 
@@ -39,14 +50,14 @@ export async function POST(req: Request) {
 
     const data = await response.json();
 
-    console.log("SMSPool purchase:", data);
+    // Keep the real API response in server logs for debugging.
+    console.log("SMSPool purchase response:", data);
 
     if (!data || Number(data.success) !== 1) {
       return NextResponse.json({
         success: false,
         message:
-          data?.message ||
-          "SMSPool could not provide a number",
+          "This number is currently unavailable. Please try another service or try again later.",
       });
     }
 
@@ -59,13 +70,16 @@ export async function POST(req: Request) {
       pool: data.pool,
       expiresIn: data.expires_in,
     });
-
   } catch (error) {
     console.error("Buy number error:", error);
 
-    return NextResponse.json({
-      success: false,
-      message: "Server error while purchasing number",
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "We couldn't complete your request right now. Please try again later.",
+      },
+      { status: 500 }
+    );
   }
 }
