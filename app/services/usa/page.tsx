@@ -40,7 +40,7 @@ export default function USAServicesPage() {
   return (
     <main className="min-h-screen bg-gray-100 p-4">
 
-      <h1 className="text-4xl font-bold text-blue-600 mb-6">
+      <h1 className="text-4xl font-bold text-primary mb-6">
         USA OTP Services
       </h1>
 
@@ -65,7 +65,7 @@ export default function USAServicesPage() {
               {service.stock}
             </h3>
 
-            <button className="mt-5 bg-blue-600 text-white px-5 py-3 rounded-2xl font-semibold w-full">
+            <button className="mt-5 bg-primary text-white px-5 py-3 rounded-2xl font-semibold w-full">
               Purchase Number
             </button>
 

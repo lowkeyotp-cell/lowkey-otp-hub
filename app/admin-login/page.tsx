@@ -34,7 +34,7 @@ export default function AdminLoginPage() {
 
       <div className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-md">
 
-        <h1 className="text-3xl font-bold text-blue-600 text-center mb-8">
+        <h1 className="text-3xl font-bold text-primary text-center mb-8">
           Admin Login
         </h1>
 
@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
 
         <button
           onClick={handleLogin}
-          className="bg-blue-600 text-white py-4 rounded-2xl font-bold w-full"
+          className="bg-primary text-white py-4 rounded-2xl font-bold w-full"
         >
           Login
         </button>

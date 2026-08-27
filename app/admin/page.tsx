@@ -58,8 +58,8 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5">
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
 
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-              <span className="text-xl font-bold text-blue-600">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
+              <span className="text-xl font-bold text-primary">
                 ✓
               </span>
             </div>
@@ -74,7 +74,7 @@ export default function AdminPage() {
 
             <button
               onClick={() => setPopup("")}
-              className="w-full rounded-2xl bg-blue-600 py-3 font-semibold text-white active:scale-95"
+              className="w-full rounded-2xl bg-primary py-3 font-semibold text-white active:scale-95"
             >
               Okay
             </button>
@@ -85,7 +85,7 @@ export default function AdminPage() {
 
       <div className="mx-auto max-w-2xl">
 
-        <h1 className="mb-8 text-4xl font-bold text-blue-600">
+        <h1 className="mb-8 text-4xl font-bold text-primary">
           Admin Panel
         </h1>
 
@@ -108,7 +108,7 @@ export default function AdminPage() {
             placeholder="Enter notification message..."
             rows={6}
             disabled={sending}
-            className="mb-5 w-full rounded-2xl border border-gray-200 p-4 text-gray-900 outline-none transition focus:border-blue-500 disabled:bg-gray-100"
+            className="mb-5 w-full rounded-2xl border border-gray-200 p-4 text-gray-900 outline-none transition focus:border-primary disabled:bg-gray-100"
           />
 
           <button
@@ -117,7 +117,7 @@ export default function AdminPage() {
               sending ||
               !message.trim()
             }
-            className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-2xl bg-primary py-4 font-bold text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {sending
               ? "Sending..."

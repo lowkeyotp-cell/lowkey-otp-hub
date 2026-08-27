@@ -45,7 +45,7 @@ export default function SignupPage() {
 
       <div className="bg-white p-8 rounded-3xl shadow-lg w-full max-w-md">
 
-        <h1 className="text-4xl font-bold text-center text-blue-600 mb-2">
+        <h1 className="text-4xl font-bold text-center text-primary mb-2">
           Create Account
         </h1>
 
@@ -77,7 +77,7 @@ export default function SignupPage() {
 
           <button
             onClick={handleSignup}
-            className="bg-blue-600 text-white py-4 rounded-xl font-semibold"
+            className="bg-primary text-white py-4 rounded-xl font-semibold"
           >
             Sign Up
           </button>

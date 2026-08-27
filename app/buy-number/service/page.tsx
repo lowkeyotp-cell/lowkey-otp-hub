@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { getIdToken } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-
 import { auth, db } from "@/lib/firebase";
 
 type ServiceData = {
@@ -16,17 +15,36 @@ type ServiceData = {
   margin?: number;
 };
 
+type PopupType = "success" | "error" | "info";
+
 export default function ServicePage() {
   const [serviceData, setServiceData] =
     useState<ServiceData | null>(null);
 
-  const [buying, setBuying] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [walletBalance, setWalletBalance] =
+    useState<number | null>(null);
+
+  const [buying, setBuying] =
+    useState(false);
+
+  const [checkingOtp, setCheckingOtp] =
+    useState(false);
+
+  const [order, setOrder] = useState<{
+    number: string;
+    orderId: string | number;
+  } | null>(null);
+
+  const [otp, setOtp] =
+    useState<string | null>(null);
+
+  const [otpMessage, setOtpMessage] =
+    useState("");
 
   const [popup, setPopup] = useState<{
     title: string;
     message: string;
-    type: "success" | "error" | "info";
+    type: PopupType;
   } | null>(null);
 
   useEffect(() => {
@@ -39,55 +57,66 @@ export default function ServicePage() {
           setPopup({
             title: "Service Unavailable",
             message:
-              "We couldn't load the selected service. Please go back and select it again.",
+              "We couldn't load the selected service. Please return and select a service again.",
             type: "error",
           });
+
           return;
         }
 
-        const selected = JSON.parse(stored);
+        const selected =
+          JSON.parse(stored);
 
-        console.log("Selected Service:", selected);
+        const response =
+          await fetch("/api/pricing", {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              country: selected.country,
+              service: selected.serviceId,
+              pool: selected.pool,
+            }),
+            cache: "no-store",
+          });
 
-        const response = await fetch("/api/pricing", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            country: selected.country,
-            service: selected.serviceId,
-            pool: selected.pool,
-          }),
-          cache: "no-store",
-        });
+        const price =
+          await response.json();
 
-        const price = await response.json();
-
-        console.log("Pricing result:", price);
-
-        if (!response.ok || !price.success) {
+        if (
+          !response.ok ||
+          !price.success
+        ) {
           setServiceData({
             ...selected,
             livePrice: undefined,
           });
+
           return;
         }
 
         setServiceData({
           ...selected,
-          livePrice: Number(price.price),
-          costPrice: Number(price.costPrice),
-          margin: Number(price.margin),
+          livePrice:
+            Number(price.price),
+          costPrice:
+            Number(price.costPrice),
+          margin:
+            Number(price.margin),
           pool: price.pool,
         });
       } catch (error) {
-        console.error("Pricing error:", error);
+        console.error(
+          "Pricing error:",
+          error
+        );
 
         setPopup({
-          title: "Unable to Load Service",
+          title: "Unable to Load",
           message:
-            "We couldn't load the service information right now. Please try again later.",
+            "We couldn't load this service right now. Please try again later.",
           type: "error",
         });
       }
@@ -96,337 +125,618 @@ export default function ServicePage() {
     loadService();
   }, []);
 
-  const loadWalletBalance = async () => {
-    const user = auth.currentUser;
+  useEffect(() => {
+    const loadWallet = async () => {
+      const user =
+        auth.currentUser;
 
-    if (!user) {
-      return null;
-    }
+      if (!user) return;
 
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
+      try {
+        const snapshot =
+          await getDoc(
+            doc(
+              db,
+              "users",
+              user.uid
+            )
+          );
 
-      if (!userSnap.exists()) {
+        if (!snapshot.exists())
+          return;
+
+        const data =
+          snapshot.data();
+
+        setWalletBalance(
+          Number(data.balance || 0)
+        );
+      } catch (error) {
+        console.error(
+          "Wallet error:",
+          error
+        );
+      }
+    };
+
+    loadWallet();
+  }, []);
+
+  const refreshWallet =
+    async () => {
+      const user =
+        auth.currentUser;
+
+      if (!user) return null;
+
+      try {
+        const snapshot =
+          await getDoc(
+            doc(
+              db,
+              "users",
+              user.uid
+            )
+          );
+
+        if (!snapshot.exists())
+          return null;
+
+        const data =
+          snapshot.data();
+
+        const balance =
+          Number(data.balance || 0);
+
+        setWalletBalance(balance);
+
+        return balance;
+      } catch (error) {
+        console.error(
+          "Wallet refresh error:",
+          error
+        );
+
         return null;
       }
+    };
 
-      const data = userSnap.data();
+  const handleBuyNumber =
+    async () => {
+      if (buying) return;
 
-      const balance = Number(data.balance || 0);
+      const user =
+        auth.currentUser;
 
-      setWalletBalance(balance);
-
-      return balance;
-    } catch (error) {
-      console.error("Wallet balance error:", error);
-      return null;
-    }
-  };
-
-  const handleBuyNumber = async () => {
-    if (buying) return;
-
-    const user = auth.currentUser;
-
-    if (!user) {
-      setPopup({
-        title: "Login Required",
-        message:
-          "Please log in to your account before purchasing a number.",
-        type: "info",
-      });
-      return;
-    }
-
-    if (!serviceData) {
-      setPopup({
-        title: "Please Wait",
-        message:
-          "Service information is still loading. Please try again in a moment.",
-        type: "info",
-      });
-      return;
-    }
-
-    if (!serviceData.serviceId) {
-      setPopup({
-        title: "Service Error",
-        message:
-          "This service could not be identified. Please select the service again.",
-        type: "error",
-      });
-      return;
-    }
-
-    if (
-      serviceData.pool === undefined ||
-      serviceData.pool === null ||
-      serviceData.pool === ""
-    ) {
-      setPopup({
-        title: "Service Unavailable",
-        message:
-          "This number pool is currently unavailable. Please try another service.",
-        type: "error",
-      });
-      return;
-    }
-
-    const price = Number(serviceData.livePrice);
-
-    if (!Number.isFinite(price) || price <= 0) {
-      setPopup({
-        title: "Price Unavailable",
-        message:
-          "The current price could not be loaded. Please try again later.",
-        type: "error",
-      });
-      return;
-    }
-
-    try {
-      setBuying(true);
-
-      /*
-       * Check the customer's wallet balance first.
-       */
-      const balance = await loadWalletBalance();
-
-      if (balance === null) {
+      if (!user) {
         setPopup({
-          title: "Wallet Unavailable",
+          title: "Login Required",
           message:
-            "We couldn't verify your wallet balance. Please try again.",
-          type: "error",
+            "Please log in before purchasing an OTP number.",
+          type: "info",
         });
+
         return;
       }
 
-      /*
-       * Do not allow a purchase when the wallet
-       * does not have enough money.
-       */
-      if (balance < price) {
+      if (!serviceData) {
         setPopup({
-          title: "Insufficient Balance",
+          title: "Please Wait",
           message:
-            `Your wallet balance is ₦${Math.floor(
-              balance
-            ).toLocaleString()}, but this number costs ₦${Math.ceil(
-              price
-            ).toLocaleString()}. Please fund your wallet and try again.`,
-          type: "error",
+            "The service is still loading.",
+          type: "info",
         });
+
         return;
       }
 
-      console.log("Starting purchase:", {
-        country: serviceData.country,
-        service: serviceData.serviceId,
-        pool: serviceData.pool,
-        price,
-        walletBalance: balance,
-      });
+      const price =
+        Number(
+          serviceData.livePrice
+        );
 
-      const idToken = await getIdToken(user, true);
+      if (
+        !Number.isFinite(price) ||
+        price <= 0
+      ) {
+        setPopup({
+          title: "Price Unavailable",
+          message:
+            "The current service price could not be loaded.",
+          type: "error",
+        });
 
-      const response = await fetch(
-        "/api/buy-number",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
-          },
-          body: JSON.stringify({
-            country: serviceData.country,
-            service: serviceData.serviceId,
-            pool: serviceData.pool,
-          }),
-          cache: "no-store",
+        return;
+      }
+
+      if (
+        serviceData.pool ===
+          undefined ||
+        serviceData.pool === null ||
+        serviceData.pool === ""
+      ) {
+        setPopup({
+          title: "Unavailable",
+          message:
+            "This number pool is currently unavailable.",
+          type: "error",
+        });
+
+        return;
+      }
+
+      try {
+        setBuying(true);
+
+        const balance =
+          await refreshWallet();
+
+        if (balance === null) {
+          setPopup({
+            title: "Wallet Error",
+            message:
+              "We couldn't verify your wallet balance.",
+            type: "error",
+          });
+
+          return;
         }
-      );
 
-      const result = await response.json();
+        if (balance < price) {
+          setPopup({
+            title: "Insufficient Balance",
+            message:
+              `You have ₦${Math.floor(
+                balance
+              ).toLocaleString()} available, but this number costs ₦${Math.ceil(
+                price
+              ).toLocaleString()}.`,
+            type: "error",
+          });
 
-      console.log("Buy Number result:", result);
+          return;
+        }
 
-      if (!response.ok || !result.success) {
+        const token =
+          await getIdToken(
+            user,
+            true
+          );
+
+        const response =
+          await fetch(
+            "/api/buy-number",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+                Authorization:
+                  `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                country:
+                  serviceData.country,
+                service:
+                  serviceData.serviceId,
+                pool:
+                  serviceData.pool,
+              }),
+              cache: "no-store",
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          setPopup({
+            title: "Purchase Unavailable",
+            message:
+              result.message ||
+              "This number is currently unavailable.",
+            type: "error",
+          });
+
+          return;
+        }
+
+        setOrder({
+          number:
+            String(
+              result.number || ""
+            ),
+          orderId:
+            result.orderId,
+        });
+
+        setOtp(null);
+        setOtpMessage(
+          "Waiting for verification code..."
+        );
+
         setPopup({
-          title: "Purchase Unavailable",
+          title: "Number Purchased",
           message:
-            result.message ||
-            "We couldn't complete your purchase right now. Please try again later.",
+            "Your number is ready. We're now waiting for the verification code.",
+          type: "success",
+        });
+
+        await refreshWallet();
+
+        checkOtp(
+          result.orderId
+        );
+      } catch (error) {
+        console.error(
+          "Purchase error:",
+          error
+        );
+
+        setPopup({
+          title: "Purchase Failed",
+          message:
+            "Something went wrong while processing your purchase.",
           type: "error",
         });
-        return;
+      } finally {
+        setBuying(false);
       }
+    };
 
-      setPopup({
-        title: "Number Purchased",
-        message:
-          `Your number ${result.number || ""} has been purchased successfully.`,
-        type: "success",
-      });
+  const checkOtp =
+    async (
+      orderId: string | number
+    ) => {
+      if (checkingOtp) return;
 
-      /*
-       * Refresh the displayed wallet balance.
-       */
-      await loadWalletBalance();
-    } catch (error) {
-      console.error("Buy Number error:", error);
+      try {
+        setCheckingOtp(true);
 
-      setPopup({
-        title: "Purchase Failed",
-        message:
-          "Something went wrong while processing your purchase. Please try again.",
-        type: "error",
-      });
-    } finally {
-      setBuying(false);
-    }
-  };
+        const started =
+          Date.now();
 
-  const closePopup = () => {
-    setPopup(null);
-  };
+        const timeout =
+          5 * 60 * 1000;
+
+        while (
+          Date.now() - started <
+          timeout
+        ) {
+          try {
+            const response =
+              await fetch(
+                "/api/otp",
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+                  body: JSON.stringify({
+                    orderId,
+                  }),
+                  cache: "no-store",
+                }
+              );
+
+            const data =
+              await response.json();
+
+            if (
+              data.success &&
+              data.code
+            ) {
+              setOtp(
+                String(data.code)
+              );
+
+              setOtpMessage(
+                "Verification code received."
+              );
+
+              return;
+            }
+
+            if (
+              data.fullMessage
+            ) {
+              setOtpMessage(
+                "Waiting for SMS..."
+              );
+            }
+          } catch (error) {
+            console.error(
+              "OTP polling error:",
+              error
+            );
+          }
+
+          await new Promise(
+            (resolve) =>
+              setTimeout(
+                resolve,
+                5000
+              )
+          );
+        }
+
+        setOtpMessage(
+          "No verification code received yet. You can check the order again later."
+        );
+      } finally {
+        setCheckingOtp(false);
+      }
+    };
+
+  const closePopup =
+    () => {
+      setPopup(null);
+    };
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
+    <main className="min-h-screen bg-[#07111f] text-white px-4 py-6">
 
-      <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg p-6">
+      <div className="max-w-md mx-auto">
 
-        <h1 className="text-3xl font-bold text-blue-600 mb-6">
-          Service Details
-        </h1>
-
-        <div className="space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-7">
 
           <div>
-            <p className="text-gray-500 text-sm">
-              Country
+            <p className="text-primary text-xs font-bold uppercase tracking-[0.2em]">
+              Lowkey OTP
             </p>
 
-            <h2 className="text-xl font-semibold text-gray-900">
-              {serviceData?.country || "Loading..."}
-            </h2>
+            <h1 className="text-3xl font-black mt-1">
+              {order
+                ? "Your OTP"
+                : "Buy Number"}
+            </h1>
           </div>
 
-          <div>
-            <p className="text-gray-500 text-sm">
-              Service
+          <div className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
+            <p className="text-[10px] text-gray-500 uppercase">
+              Wallet
             </p>
 
-            <h2 className="text-xl font-semibold text-gray-900">
-              {serviceData?.serviceName || "Loading..."}
-            </h2>
-          </div>
-
-          <div>
-            <p className="text-gray-500 text-sm">
-              Price
-            </p>
-
-            <h2 className="text-2xl font-bold text-green-600">
-              {serviceData?.livePrice
-                ? `₦${Math.ceil(
-                    Number(serviceData.livePrice)
-                  ).toLocaleString()}`
-                : "Loading..."}
-            </h2>
-          </div>
-
-          <div>
-            <p className="text-gray-500 text-sm">
-              Wallet Balance
-            </p>
-
-            <h2 className="text-xl font-bold text-gray-900">
+            <p className="font-bold text-sm">
               {walletBalance !== null
                 ? `₦${Math.floor(
                     walletBalance
                   ).toLocaleString()}`
                 : "—"}
-            </h2>
-          </div>
-
-          <div>
-            <p className="text-gray-500 text-sm">
-              Status
             </p>
-
-            <span className="text-green-600 font-semibold">
-              ● Available
-            </span>
           </div>
 
         </div>
 
-        <button
-          onClick={handleBuyNumber}
-          disabled={buying || !serviceData}
-          className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+        {/* OTP result */}
+        {order ? (
+          <div className="space-y-5">
+
+            <div className="rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 p-7">
+
+              <p className="text-gray-400 text-sm">
+                Your number
+              </p>
+
+              <h2 className="text-3xl font-black mt-2 tracking-wide">
+                {order.number}
+              </h2>
+
+              <div className="mt-6 h-px bg-white/10" />
+
+              <p className="text-gray-400 text-sm mt-5">
+                Verification code
+              </p>
+
+              {otp ? (
+                <div className="mt-3 text-center">
+
+                  <div className="rounded-2xl bg-black/30 border border-primary/20 py-6">
+
+                    <p className="text-5xl font-black tracking-[0.3em] text-primary-light">
+                      {otp}
+                    </p>
+
+                  </div>
+
+                  <p className="text-green-400 text-sm font-semibold mt-4">
+                    ✓ Code received
+                  </p>
+
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-white/5 p-5 text-center">
+
+                  <div className="w-8 h-8 mx-auto rounded-full border-2 border-primary border-t-transparent animate-spin" />
+
+                  <p className="text-gray-300 mt-4 font-semibold">
+                    Waiting for SMS
+                  </p>
+
+                  <p className="text-gray-500 text-sm mt-2">
+                    {otpMessage}
+                  </p>
+
+                </div>
+              )}
+
+            </div>
+
+            <button
+              onClick={() =>
+                checkOtp(order.orderId)
+              }
+              disabled={checkingOtp}
+              className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 font-bold disabled:opacity-50"
+            >
+              {checkingOtp
+                ? "Checking..."
+                : "Check for OTP"}
+            </button>
+
+            <button
+              onClick={() =>
+                window.location.href =
+                  "/orders"
+              }
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary text-[#03101d] font-black"
+            >
+              View My Orders
+            </button>
+
+          </div>
+        ) : (
+
+          /* Purchase card */
+          <div className="rounded-[2rem] bg-white/[0.04] border border-white/10 backdrop-blur-xl p-6">
+
+            <div className="rounded-3xl bg-gradient-to-br from-primary/20 to-primary/10 border border-white/10 p-5 mb-6">
+
+              <p className="text-gray-500 text-sm">
+                Country
+              </p>
+
+              <h2 className="text-xl font-bold mt-1">
+                {serviceData?.country ||
+                  "Loading..."}
+              </h2>
+
+              <p className="text-gray-500 text-sm mt-5">
+                Service
+              </p>
+
+              <h2 className="text-xl font-bold mt-1">
+                {serviceData?.serviceName ||
+                  "Loading..."}
+              </h2>
+
+            </div>
+
+            <div className="flex items-end justify-between mb-6">
+
+              <div>
+                <p className="text-gray-500 text-sm">
+                  Price
+                </p>
+
+                <h2 className="text-4xl font-black text-primary-light mt-1">
+                  {serviceData?.livePrice
+                    ? `₦${Math.ceil(
+                        serviceData.livePrice
+                      ).toLocaleString()}`
+                    : "—"}
+                </h2>
+              </div>
+
+              <span className="text-green-400 text-sm font-bold">
+                ● Available
+              </span>
+
+            </div>
+
+            <div className="rounded-2xl bg-black/20 border border-white/5 p-4 mb-6">
+
+              <div className="flex justify-between text-sm">
+
+                <span className="text-gray-500">
+                  Wallet balance
+                </span>
+
+                <span className="font-bold">
+                  {walletBalance !== null
+                    ? `₦${Math.floor(
+                        walletBalance
+                      ).toLocaleString()}`
+                    : "—"}
+                </span>
+
+              </div>
+
+            </div>
+
+            <button
+              onClick={handleBuyNumber}
+              disabled={
+                buying ||
+                !serviceData
+              }
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary text-[#03101d] font-black text-lg shadow-lg shadow-primary/10 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {buying
+                ? "Processing..."
+                : "Buy Number"}
+            </button>
+
+          </div>
+        )}
+
+        {/* Help */}
+        <a
+          href="https://wa.me/2347038167338"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-gray-500 text-sm mt-7"
         >
-          {buying
-            ? "Processing..."
-            : "Buy Number"}
-        </button>
+          Need help?{" "}
+          <span className="text-green-400 font-semibold">
+            WhatsApp Support
+          </span>
+        </a>
 
       </div>
 
+      {/* Modern popup */}
       {popup && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-5"
           onClick={closePopup}
         >
+
           <div
-            className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6"
-            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-[2rem] bg-[#101c2d] border border-white/10 shadow-2xl p-7"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
 
             <div
-              className={`w-14 h-14 rounded-full flex items-center justify-center mb-5 ${
+              className={`w-16 h-16 rounded-3xl flex items-center justify-center text-3xl mb-5 ${
                 popup.type === "success"
-                  ? "bg-green-100"
+                  ? "bg-green-400/10 text-green-400"
                   : popup.type === "info"
-                  ? "bg-blue-100"
-                  : "bg-red-100"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-red-400/10 text-red-400"
               }`}
             >
-              <span
-                className={`text-2xl font-bold ${
-                  popup.type === "success"
-                    ? "text-green-600"
-                    : popup.type === "info"
-                    ? "text-blue-600"
-                    : "text-red-600"
-                }`}
-              >
-                {popup.type === "success"
-                  ? "✓"
-                  : popup.type === "info"
-                  ? "i"
-                  : "!"}
-              </span>
+              {popup.type === "success"
+                ? "✓"
+                : popup.type === "info"
+                ? "i"
+                : "!"}
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h2 className="text-2xl font-black">
               {popup.title}
             </h2>
 
-            <p className="text-gray-600 leading-6">
+            <p className="text-gray-400 leading-6 mt-3">
               {popup.message}
             </p>
 
             <button
               onClick={closePopup}
-              className="w-full mt-6 bg-gray-900 text-white py-3.5 rounded-2xl font-bold hover:bg-black transition"
+              className="w-full mt-7 py-4 rounded-2xl bg-white text-black font-black"
             >
               Continue
             </button>
 
           </div>
+
         </div>
       )}
 

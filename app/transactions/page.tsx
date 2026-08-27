@@ -61,7 +61,7 @@ export default function TransactionsPage() {
   return (
     <main className="min-h-screen bg-gray-100 p-6">
 
-      <h1 className="text-4xl font-bold text-blue-600 mb-8">
+      <h1 className="text-4xl font-bold text-primary mb-8">
         Transaction History
       </h1>
 

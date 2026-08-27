@@ -158,7 +158,7 @@ export default function RegisterPage() {
                   router.push("/login");
                 }
               }}
-              className="mt-6 w-full rounded-2xl bg-blue-600 py-3.5 font-bold text-white transition active:scale-95"
+              className="mt-6 w-full rounded-2xl bg-primary py-3.5 font-bold text-white transition active:scale-95"
             >
               Continue
             </button>
@@ -171,7 +171,7 @@ export default function RegisterPage() {
 
         <div className="mb-8">
 
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-md">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-md">
             <span className="text-xl font-black text-white">
               +
             </span>
@@ -199,7 +199,7 @@ export default function RegisterPage() {
             setUsername(e.target.value)
           }
           disabled={loading}
-          className="w-full border border-gray-200 bg-gray-50 p-4 rounded-2xl mb-5 text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+          className="w-full border border-gray-200 bg-gray-50 p-4 rounded-2xl mb-5 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
         />
 
         <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -214,7 +214,7 @@ export default function RegisterPage() {
             setEmail(e.target.value)
           }
           disabled={loading}
-          className="w-full border border-gray-200 bg-gray-50 p-4 rounded-2xl mb-5 text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+          className="w-full border border-gray-200 bg-gray-50 p-4 rounded-2xl mb-5 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
         />
 
         <label className="mb-2 block text-sm font-semibold text-gray-700">
@@ -235,7 +235,7 @@ export default function RegisterPage() {
               setPassword(e.target.value)
             }
             disabled={loading}
-            className="w-full border border-gray-200 bg-gray-50 p-4 pr-20 rounded-2xl text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+            className="w-full border border-gray-200 bg-gray-50 p-4 pr-20 rounded-2xl text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
           />
 
           <button
@@ -243,7 +243,7 @@ export default function RegisterPage() {
             onClick={() =>
               setShowPassword(!showPassword)
             }
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-blue-600"
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary"
           >
             {showPassword ? "Hide" : "Show"}
           </button>
@@ -257,7 +257,7 @@ export default function RegisterPage() {
         <button
           onClick={handleRegister}
           disabled={loading}
-          className="bg-blue-600 text-white py-4 rounded-2xl font-bold w-full shadow-md transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          className="bg-primary text-white py-4 rounded-2xl font-bold w-full shadow-md transition hover:bg-primary-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? "Creating Account..."

@@ -111,7 +111,7 @@ export default function DashboardPage() {
               onClick={handleLogoClick}
               className="cursor-pointer"
             >
-              <h1 className="text-2xl font-bold text-cyan-400">
+              <h1 className="text-2xl font-bold text-primary">
                 Lowkey OTP
               </h1>
             </div>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
           onClick={handleLogoClick}
           className="cursor-pointer"
         >
-          <h1 className="text-xl font-bold text-cyan-400">
+          <h1 className="text-xl font-bold text-primary">
             Lowkey OTP
           </h1>
         </div>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
       </div>
       <div className="px-6 mt-8">
 
-        <div className="rounded-3xl bg-gradient-to-r from-cyan-500 to-blue-600 p-6">
+        <div className="rounded-3xl bg-gradient-to-r from-primary to-primary p-6">
 
           <p className="text-white/80">
             Wallet Balance
@@ -258,7 +258,7 @@ export default function DashboardPage() {
 
                 <Icon
                   size={34}
-                  className="text-cyan-400"
+                  className="text-primary"
                 />
 
                 <span className="mt-4 font-semibold">
@@ -281,7 +281,7 @@ export default function DashboardPage() {
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex flex-col items-center text-cyan-400"
+            className="flex flex-col items-center text-primary"
           >
             <Wallet size={24} />
             <span className="text-xs mt-1">

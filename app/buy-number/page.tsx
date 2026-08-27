@@ -160,7 +160,7 @@ export default function BuyNumberPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5">
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
 
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary-light">
               <span className="text-2xl">!</span>
             </div>
 
@@ -174,7 +174,7 @@ export default function BuyNumberPage() {
 
             <button
               onClick={() => setPopup("")}
-              className="w-full rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition active:scale-95"
+              className="w-full rounded-2xl bg-primary px-5 py-3 font-semibold text-white transition active:scale-95"
             >
               Okay
             </button>
@@ -183,7 +183,7 @@ export default function BuyNumberPage() {
         </div>
       )}
 
-      <h1 className="mb-8 text-4xl font-bold text-blue-600">
+      <h1 className="mb-8 text-4xl font-bold text-primary">
         Buy OTP Number
       </h1>
 

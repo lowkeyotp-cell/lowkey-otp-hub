@@ -196,7 +196,7 @@ export default function LoginPage() {
               className={`mt-6 w-full rounded-2xl py-3.5 font-bold text-white transition active:scale-95 ${
                 popup.type === "success"
                   ? "bg-green-600"
-                  : "bg-blue-600"
+                  : "bg-primary"
               }`}
             >
               Continue
@@ -210,7 +210,7 @@ export default function LoginPage() {
 
         <div className="mb-8 text-center">
 
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
             <span className="text-2xl font-black text-white">
               LO
             </span>
@@ -246,7 +246,7 @@ export default function LoginPage() {
               }
               autoComplete="email"
               disabled={loading}
-              className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+              className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
             />
           </div>
 
@@ -274,7 +274,7 @@ export default function LoginPage() {
                 }
                 autoComplete="current-password"
                 disabled={loading}
-                className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 pr-20 text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 pr-20 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
               />
 
               <button
@@ -285,7 +285,7 @@ export default function LoginPage() {
                   )
                 }
                 disabled={loading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl px-3 py-2 text-sm font-semibold text-blue-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl px-3 py-2 text-sm font-semibold text-primary"
               >
                 {showPassword
                   ? "Hide"
@@ -299,7 +299,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleLogin}
             disabled={loading}
-            className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white shadow-md transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-2xl bg-primary py-4 font-bold text-white shadow-md transition hover:bg-primary-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading
               ? "Signing in..."

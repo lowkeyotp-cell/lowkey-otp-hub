@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
     <main className="min-h-screen bg-gray-100 p-6">
 
-      <h1 className="text-4xl font-bold text-blue-600 mb-8">
+      <h1 className="text-4xl font-bold text-primary mb-8">
         Admin Dashboard
       </h1>
 
@@ -68,7 +68,7 @@ export default function AdminDashboard() {
 
         <div className="grid grid-cols-2 gap-4">
 
-          <div className="bg-blue-600 text-white p-6 rounded-3xl">
+          <div className="bg-primary text-white p-6 rounded-3xl">
 
             <h2 className="text-xl font-bold">
               Total Users
@@ -126,7 +126,7 @@ export default function AdminDashboard() {
             onClick={() =>
               window.location.href = "/admin"
             }
-            className="bg-blue-600 text-white py-4 rounded-2xl font-bold w-full"
+            className="bg-primary text-white py-4 rounded-2xl font-bold w-full"
           >
             Open Notifications Panel
           </button>
