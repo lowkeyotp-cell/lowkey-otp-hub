@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-
+import { adminDb } from "@/lib/firebase-admin";
 export async function POST(req: Request) {
   try {
     const { orderId } = await req.json();
@@ -43,7 +43,20 @@ export async function POST(req: Request) {
     );
 
     const data = await response.json();
+if (data.code) {
+  const snapshot = await adminDb
+    .collection("orders")
+    .where("orderId", "==", orderId)
+    .limit(1)
+    .get();
 
+  if (!snapshot.empty) {
+    await snapshot.docs[0].ref.update({
+      otp: data.code,
+      status: "completed",
+    });
+  }
+}
     console.log("SMSPool OTP response:", data);
 
     return NextResponse.json({

@@ -69,7 +69,13 @@ export default function OrdersPage() {
 
     };
 
-    loadOrders();
+       loadOrders();
+
+    const interval = setInterval(() => {
+      loadOrders();
+    }, 5000);
+
+    return () => clearInterval(interval);
 
   }, []);
 
