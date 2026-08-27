@@ -1,9 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { auth } from "@/lib/firebase";
 
 export default function Home() {
+const router = useRouter();
+
+const handleProtectedNavigation = (path: string) => {
+  const user = auth.currentUser;
+
+  if (!user) {
+    router.push("/login");
+    return;
+  }
+
+  router.push(path);
+};
   const [adminTap, setAdminTap] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -72,37 +86,35 @@ export default function Home() {
 
       </nav>
 
-      {/* Mobile menu */}
-      {menuOpen && (
-        <div className="relative z-30 md:hidden px-5 py-4 bg-[#0b1728] border-b border-white/10">
+     {/* Mobile menu */}
+{menuOpen && (
+  <div className="relative z-30 md:hidden px-5 py-4 bg-[#0b1728] border-b border-white/10">
+    <div className="flex flex-col gap-2">
 
-          <div className="flex flex-col gap-2">
+      <button
+        onClick={() => handleProtectedNavigation("/buy-number")}
+        className="p-4 rounded-2xl bg-white/5 text-left w-full"
+      >
+        Buy Number
+      </button>
 
-            <Link
-              href="/buy-number"
-              className="p-4 rounded-2xl bg-white/5"
-            >
-              Buy Number
-            </Link>
+      <button
+        onClick={() => handleProtectedNavigation("/fund-wallet")}
+        className="p-4 rounded-2xl bg-white/5 text-left w-full"
+      >
+        Fund Wallet
+      </button>
 
-            <Link
-              href="/fund-wallet"
-              className="p-4 rounded-2xl bg-white/5"
-            >
-              Fund Wallet
-            </Link>
+      <button
+        onClick={() => handleProtectedNavigation("/notifications")}
+        className="p-4 rounded-2xl bg-white/5 text-left w-full"
+      >
+        Notifications
+      </button>
 
-            <Link
-              href="/notifications"
-              className="p-4 rounded-2xl bg-white/5"
-            >
-              Notifications
-            </Link>
-
-          </div>
-
-        </div>
-      )}
+    </div>
+  </div>
+)}
 
       {/* Hero */}
       <section className="relative z-10 px-5 sm:px-8 pt-16 sm:pt-24 pb-20">
