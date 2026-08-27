@@ -16,7 +16,20 @@ export async function POST(req: Request) {
     const idToken = authorization.substring(7);
     const decodedToken = await getAuth().verifyIdToken(idToken);
 
-    const { reference } = await req.json();
+   let reference = "";
+
+try {
+  const body = await req.json();
+  reference = body.reference;
+} catch {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Payment reference missing.",
+    },
+    { status: 400 }
+  );
+}
 
     if (!reference) {
       return NextResponse.json(

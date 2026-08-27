@@ -83,6 +83,11 @@ export default function FundWalletPage() {
 
       const data = await response.json();
 
+localStorage.setItem(
+  "paystackReference",
+  data.reference
+);
+
       if (!response.ok || !data.success) {
         showPopup(
           "Payment unavailable",
@@ -119,10 +124,11 @@ export default function FundWalletPage() {
                       Authorization:
                         `Bearer ${freshToken}`,
                     },
-                    body: JSON.stringify({
-                      reference:
-                        transaction.reference,
-                    }),
+   body: JSON.stringify({
+  reference:
+    transaction.reference ||
+    localStorage.getItem("paystackReference"),
+}),
                   }
                 );
 
@@ -205,7 +211,7 @@ export default function FundWalletPage() {
       ? "bg-green-100 text-green-600"
       : popup?.type === "error"
       ? "bg-red-100 text-red-600"
-      : "bg-blue-100 text-blue-600";
+      : "bg-primary-light text-primary";
 
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
@@ -236,7 +242,7 @@ export default function FundWalletPage() {
 
             <button
               onClick={() => setPopup(null)}
-              className="mt-6 w-full rounded-2xl bg-blue-600 py-3.5 font-bold text-white transition active:scale-95"
+              className="mt-6 w-full rounded-2xl bg-primary py-3.5 font-bold text-white transition active:scale-95"
             >
               Continue
             </button>
@@ -249,7 +255,7 @@ export default function FundWalletPage() {
 
         <div className="mb-8">
 
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-md">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-md">
             <span className="text-xl font-black text-white">
               ₦
             </span>
@@ -278,13 +284,13 @@ export default function FundWalletPage() {
             setAmount(e.target.value)
           }
           disabled={loading}
-          className="mb-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-900 outline-none transition focus:border-blue-500 focus:bg-white disabled:opacity-60"
+          className="mb-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
         />
 
         <button
           onClick={handleFundWallet}
           disabled={loading}
-          className="w-full rounded-2xl bg-blue-600 py-4 font-bold text-white shadow-md transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-2xl bg-primary py-4 font-bold text-white shadow-md transition hover:bg-primary-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? "Starting Payment..."
