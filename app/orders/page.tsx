@@ -99,34 +99,58 @@ export default function OrdersPage() {
 
           {orders.map((order) => (
 
-            <div
-              key={order.id}
-              className="bg-white p-6 rounded-3xl shadow-sm"
-            >
+           <div
+  key={order.id}
+  className="rounded-[2rem] bg-[#111827] border border-cyan-400/20 p-6 shadow-xl"
+>
 
-              <p className="font-bold text-lg">
-                {order.service || "Unknown Service"}
-              </p>
+             <div className="flex items-center justify-between mb-5">
+  <div>
+    <h2 className="text-2xl font-black text-white">
+      {order.service || "Unknown Service"}
+    </h2>
 
-              <p className="mt-2">
-                Number:
-                {order.number || "N/A"}
-              </p>
+    <p className="text-cyan-300 mt-1">
+      {order.country || "Unknown Country"}
+    </p>
+  </div>
 
-              <p className="mt-2">
-                Country:
-                {order.country || "N/A"}
-              </p>
+  <span
+    className={`px-4 py-2 rounded-full text-sm font-bold ${
+      order.status === "completed"
+        ? "bg-green-500/20 text-green-400"
+        : "bg-yellow-500/20 text-yellow-400"
+    }`}
+  >
+    {order.status === "completed"
+      ? "Completed"
+      : "Waiting"}
+  </span>
+</div>
 
-              <p className="mt-2">
-                OTP:
-                {order.otp || "Waiting..."}
-              </p>
+<div className="space-y-4">
 
-              <p className="mt-2 font-bold">
-                Status:
-                {order.status || "Pending"}
-              </p>
+  <div>
+    <p className="text-gray-400 text-sm">
+      Phone Number
+    </p>
+
+    <p className="text-xl font-bold text-white">
+      {order.number || "-----"}
+    </p>
+  </div>
+
+  <div>
+    <p className="text-gray-400 text-sm">
+      OTP Code
+    </p>
+
+    <p className="text-3xl font-black tracking-[8px] text-cyan-300">
+      {order.otp || "Waiting..."}
+    </p>
+  </div>
+
+</div>
 
             </div>
 
