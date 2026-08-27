@@ -49,13 +49,37 @@ export default function OrdersPage() {
         const snapshot =
           await getDocs(q);
 
-        const data =
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+       const data =
+  snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data()
+  }));
 
-        setOrders(data);
+await Promise.all(
+  data.map(async (order: any) => {
+    if (
+      order.status === "waiting" &&
+      order.orderId
+    ) {
+      try {
+        await fetch("/api/otp", {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            orderId: order.orderId,
+          }),
+        });
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  })
+);
+
+setOrders(data);
 
       } catch (error) {
 
