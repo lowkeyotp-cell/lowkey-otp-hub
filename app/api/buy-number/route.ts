@@ -326,6 +326,31 @@ export async function POST(req: Request) {
       });
     }
 
+// Save the order in Firestore
+await adminDb.collection("orders").add({
+  uid: decodedToken.uid,
+
+  number: purchaseData.number,
+  orderId: purchaseData.order_id,
+
+  country,
+  service,
+  pool: purchaseData.pool,
+
+  price: walletAmount,
+
+  status: "waiting",
+
+  otp: null,
+
+  createdAt: new Date(),
+
+  expiresAt: new Date(
+    Date.now() +
+      Number(purchaseData.expires_in || 1200) * 1000
+  ),
+});
+
     // ─────────────────────────────
     // 10. Success
     // ─────────────────────────────
