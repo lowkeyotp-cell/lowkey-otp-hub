@@ -14,6 +14,35 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check our order status before contacting SMSPool.
+    const orderSnapshot = await adminDb
+      .collection("orders")
+      .where("orderId", "==", String(orderId))
+      .limit(1)
+      .get();
+
+    if (!orderSnapshot.empty) {
+      const orderData =
+        orderSnapshot.docs[0].data();
+
+      if (orderData.status === "cancelled") {
+        return NextResponse.json({
+          success: false,
+          status: "cancelled",
+          message: "This order has been cancelled.",
+        });
+      }
+
+      if (orderData.status === "completed") {
+        return NextResponse.json({
+          success: false,
+          status: "completed",
+          message: "This order has already been completed.",
+          code: orderData.otp || null,
+        });
+      }
+    }
+
     const apiKey = process.env.SMSPOOL_API_KEY;
 
     if (!apiKey) {
@@ -43,7 +72,12 @@ export async function POST(req: Request) {
     );
 
     const data = await response.json();
-if (data.code) {
+const otpCode =
+  data.code ||
+  data.sms ||
+  null;
+
+if (otpCode) {
   const snapshot = await adminDb
     .collection("orders")
     .where("orderId", "==", orderId)
@@ -52,19 +86,25 @@ if (data.code) {
 
   if (!snapshot.empty) {
     await snapshot.docs[0].ref.update({
-      otp: data.code,
+      otp: otpCode,
       status: "completed",
     });
   }
 }
     console.log("SMSPool OTP response:", data);
 
-    return NextResponse.json({
-      success: true,
-      status: data.status,
-      fullMessage: data.full_message || "",
-      code: data.code || null,
-    });
+   return NextResponse.json({
+  success: true,
+  status: data.status,
+  fullMessage:
+    data.full_message ||
+    data.full_sms ||
+    "",
+  code:
+    data.code ||
+    data.sms ||
+    null,
+});
   } catch (error) {
     console.error("OTP check error:", error);
 

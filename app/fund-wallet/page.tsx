@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getIdToken } from "firebase/auth";
-
 import { auth } from "@/lib/firebase";
 
 export default function FundWalletPage() {
@@ -23,11 +22,7 @@ export default function FundWalletPage() {
     message: string,
     type: "success" | "error" | "info"
   ) => {
-    setPopup({
-      title,
-      message,
-      type,
-    });
+    setPopup({ title, message, type });
   };
 
   const handleFundWallet = async () => {
@@ -40,10 +35,7 @@ export default function FundWalletPage() {
         "error"
       );
 
-      setTimeout(() => {
-        router.push("/login");
-      }, 1200);
-
+      setTimeout(() => router.push("/login"), 1200);
       return;
     }
 
@@ -83,11 +75,6 @@ export default function FundWalletPage() {
 
       const data = await response.json();
 
-localStorage.setItem(
-  "paystackReference",
-  data.reference
-);
-
       if (!response.ok || !data.success) {
         showPopup(
           "Payment unavailable",
@@ -110,6 +97,23 @@ localStorage.setItem(
             reference: string;
           }) => {
             try {
+              const reference =
+                transaction.reference;
+
+              if (!reference) {
+                showPopup(
+                  "Verification pending",
+                  "Payment completed but no transaction reference was returned.",
+                  "info"
+                );
+                return;
+              }
+
+              console.log(
+                "Paystack successful reference:",
+                reference
+              );
+
               const freshToken =
                 await getIdToken(user, true);
 
@@ -124,16 +128,19 @@ localStorage.setItem(
                       Authorization:
                         `Bearer ${freshToken}`,
                     },
-   body: JSON.stringify({
-  reference:
-    transaction.reference ||
-    localStorage.getItem("paystackReference"),
-}),
+                    body: JSON.stringify({
+                      reference,
+                    }),
                   }
                 );
 
               const verifyData =
                 await verifyResponse.json();
+
+              console.log(
+                "Wallet verification:",
+                verifyData
+              );
 
               if (
                 !verifyResponse.ok ||
@@ -152,14 +159,15 @@ localStorage.setItem(
                 "Wallet funded",
                 `Payment successful. ₦${Number(
                   verifyData.amount
-                ).toLocaleString()} has been added to your wallet.`,
+                ).toLocaleString(
+                  "en-NG"
+                )} has been added to your wallet.`,
                 "success"
               );
 
               setTimeout(() => {
                 router.push("/dashboard");
               }, 1200);
-
             } catch (error) {
               console.error(
                 "Verification error:",
@@ -181,6 +189,19 @@ localStorage.setItem(
               "info"
             );
           },
+
+          onError: (error: any) => {
+            console.error(
+              "Paystack error:",
+              error
+            );
+
+            showPopup(
+              "Payment error",
+              "Paystack could not complete the transaction.",
+              "error"
+            );
+          },
         }
       );
     } catch (error) {
@@ -191,7 +212,7 @@ localStorage.setItem(
 
       showPopup(
         "Payment unavailable",
-        "We couldn't start the payment. Please try again.",
+        "We couldn't start your payment. Please try again.",
         "error"
       );
     } finally {

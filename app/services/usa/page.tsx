@@ -1,41 +1,58 @@
 "use client";
 
-const services = [
-  {
-    name: "WhatsApp",
-    stock: 124,
-  },
-  {
-    name: "Telegram",
-    stock: 89,
-  },
-  {
-    name: "Facebook",
-    stock: 57,
-  },
-  {
-    name: "Signal",
-    stock: 31,
-  },
-  {
-    name: "Instagram",
-    stock: 74,
-  },
-  {
-    name: "TikTok",
-    stock: 41,
-  },
-  {
-    name: "Binance",
-    stock: 19,
-  },
-  {
-    name: "Gmail",
-    stock: 102,
-  },
-];
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type Service = {
+  ID: string | number;
+  name?: string;
+  service?: string;
+  livePrice?: string | number;
+  pool?: string | number | null;
+};
 
 export default function USAServicesPage() {
+  const router = useRouter();
+
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadServices = async () => {
+      try {
+        const response = await fetch("/api/services", {
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !Array.isArray(data)) {
+          console.error("Services error:", data);
+          return;
+        }
+
+        setServices(data);
+      } catch (error) {
+        console.error("Failed to load services:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadServices();
+
+    const interval = setInterval(loadServices, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handlePurchase = (service: Service) => {
+    router.push(
+      `/buy-number/service?country=USA&service=${encodeURIComponent(
+        String(service.ID)
+      )}`
+    );
+  };
 
   return (
     <main className="min-h-screen bg-gray-100 p-4">
@@ -44,36 +61,49 @@ export default function USAServicesPage() {
         USA OTP Services
       </h1>
 
-      <div className="grid gap-4">
+      {loading ? (
+        <p className="text-gray-600">
+          Loading live services...
+        </p>
+      ) : services.length === 0 ? (
+        <div className="bg-white rounded-2xl p-6">
+          <p>No USA services available.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
 
-        {services.map((service, index) => (
+          {services.map((service) => (
 
-          <div
-            key={index}
-            className="bg-white rounded-2xl p-5 shadow-sm"
-          >
+            <div
+              key={service.ID}
+              className="bg-white rounded-2xl p-5 shadow-sm"
+            >
 
-            <h2 className="text-2xl font-bold text-gray-900">
-              {service.name}
-            </h2>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {service.name || service.service || "Unknown Service"}
+              </h2>
 
-            <p className="text-gray-500 mt-3">
-              Numbers Available
-            </p>
+              <p className="text-gray-500 mt-3">
+                Live SMSPool Price
+              </p>
 
-            <h3 className="text-3xl font-bold text-green-600 mt-1">
-              {service.stock}
-            </h3>
+              <h3 className="text-2xl font-bold text-blue-600 mt-1">
+                ${service.livePrice ?? "0"}
+              </h3>
 
-            <button className="mt-5 bg-primary text-white px-5 py-3 rounded-2xl font-semibold w-full">
-              Purchase Number
-            </button>
+              <button
+                onClick={() => handlePurchase(service)}
+                className="mt-5 bg-primary text-white px-5 py-3 rounded-2xl font-semibold w-full"
+              >
+                Purchase Number
+              </button>
 
-          </div>
+            </div>
 
-        ))}
+          ))}
 
-      </div>
+        </div>
+      )}
 
     </main>
   );

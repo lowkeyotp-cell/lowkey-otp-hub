@@ -27,6 +27,33 @@ export async function POST(req: Request) {
       await getAuth().verifyIdToken(idToken);
 
     // ─────────────────────────────
+    // Marketplace availability
+    // ─────────────────────────────
+
+   const marketplaceSettingsSnap = await adminDb
+  .collection("settings")
+  .doc("platform")
+  .get();
+
+const marketplaceSettings =
+  marketplaceSettingsSnap.exists
+    ? marketplaceSettingsSnap.data() ?? {}
+    : {};
+
+  if (
+  marketplaceSettings.marketplaceEnabled === false
+) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "The marketplace is temporarily unavailable. Please check back later.",
+        },
+        { status: 503 }
+      );
+    }
+
+    // ─────────────────────────────
     // 2. Read purchase request
     // ─────────────────────────────
 
@@ -112,6 +139,10 @@ export async function POST(req: Request) {
           Number(service)
     );
 
+console.log("COUNTRY:", country);
+console.log("SERVICE ID:", service);
+console.log("MATCHING PRICES:", matches);
+
     if (matches.length === 0) {
       return NextResponse.json(
         {
@@ -181,19 +212,63 @@ export async function POST(req: Request) {
     }
 
     // ─────────────────────────────
-    // 6. Calculate SERVER-SIDE price
-    // ─────────────────────────────
+// 6. Load Admin pricing settings
+// ─────────────────────────────
 
-    const PROFIT_MARKUP = 350;
+const settingsRef = adminDb
+  .collection("platformSettings")
+  .doc("pricing");
 
-    const costPrice =
-      usdPrice * usdToNgn;
+const settingsSnap =
+  await settingsRef.get();
 
-    const sellingPrice =
-      costPrice + PROFIT_MARKUP;
+const settings =
+  settingsSnap.exists
+    ? settingsSnap.data()
+    : null;
 
-    const walletAmount =
-      Math.ceil(sellingPrice);
+const useCustomUsdRate =
+  Boolean(settings?.useCustomUsdRate);
+
+const customUsdToNgn =
+  Number(settings?.customUsdToNgn ?? 0);
+
+const markupPercent =
+  Number(settings?.markupPercent ?? 0);
+
+// ─────────────────────────────
+// 7. Choose active USD/NGN rate
+// ─────────────────────────────
+
+const activeUsdToNgn =
+  useCustomUsdRate &&
+  Number.isFinite(customUsdToNgn) &&
+  customUsdToNgn > 0
+    ? customUsdToNgn
+    : usdToNgn;
+
+// ─────────────────────────────
+// 8. Calculate SERVER-SIDE price
+// ─────────────────────────────
+
+const costPrice =
+  usdPrice * activeUsdToNgn;
+
+const markupAmount =
+  costPrice *
+  (markupPercent / 100);
+
+const calculatedSellingPrice =
+  costPrice + markupAmount;
+
+// Keep existing Signal special price
+const walletAmount =
+  String(country) === "1" &&
+  Number(service) === 829
+    ? 100
+    : Math.ceil(
+        calculatedSellingPrice
+      );
 
     const userRef = adminDb
       .collection("users")
@@ -221,6 +296,13 @@ export async function POST(req: Request) {
 
         const balance =
           Number(userData?.balance ?? 0);
+
+console.log("WALLET DEBUG:", {
+  balance,
+  walletAmount,
+  country,
+  service,
+});
 
         if (
           !Number.isFinite(balance) ||
@@ -337,7 +419,12 @@ await adminDb.collection("orders").add({
   service,
   pool: purchaseData.pool,
 
-  price: walletAmount,
+   price: walletAmount,
+
+  // Accounting information
+  smsPoolUsdPrice: usdPrice,
+  usdToNgn: activeUsdToNgn,
+  smsPoolCostNgn: costPrice,
 
   status: "waiting",
 
@@ -349,6 +436,28 @@ await adminDb.collection("orders").add({
     Date.now() +
       Number(purchaseData.expires_in || 1200) * 1000
   ),
+});
+
+await adminDb.collection("platformTransactions").add({
+  uid: decodedToken.uid,
+
+  orderId: purchaseData.order_id,
+
+  type: "sale",
+
+  amount: walletAmount,
+
+  smsPoolUsdPrice: usdPrice,
+  usdToNgn: usdToNgn,
+  smsPoolCostNgn: costPrice,
+
+  country: String(country),
+  service: String(service),
+  pool: purchaseData.pool ?? null,
+
+  status: "completed",
+
+  createdAt: new Date(),
 });
 
     // ─────────────────────────────
@@ -386,7 +495,7 @@ await adminDb.collection("orders").add({
         costPrice,
 
       margin:
-        PROFIT_MARKUP,
+       markupPercent,
 
       remainingBalance:
         previousBalance -

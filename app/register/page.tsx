@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -22,6 +22,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -31,6 +32,20 @@ export default function RegisterPage() {
     message: string;
     type: "success" | "error";
   } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
+    const ref = params.get("ref");
+
+    if (ref) {
+      setReferralCode(
+        ref.trim().toUpperCase()
+      );
+    }
+  }, []);
 
   const showPopup = (
     title: string,
@@ -69,38 +84,119 @@ export default function RegisterPage() {
 
       await sendEmailVerification(user);
 
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          username,
-          email,
-          balance: 0,
-          createdAt: serverTimestamp(),
+     await setDoc(
+  doc(db, "users", user.uid),
+  {
+    username,
+    email,
+    balance: 0,
+    createdAt: serverTimestamp(),
+  }
+);
+
+try {
+  const idToken = await user.getIdToken();
+
+  const referralResponse = await fetch(
+    "/api/referrals/generate",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        idToken,
+      }),
+    }
+  );
+
+  const referralResult =
+    await referralResponse.json();
+
+  if (!referralResponse.ok) {
+    console.warn(
+      "Referral code generation:",
+      referralResult.message
+    );
+  }
+} catch (error) {
+  console.error(
+    "Referral code generation error:",
+    error
+  );
+}
+
+      /*
+       * Register referral after the user account
+       * has been successfully created.
+       */
+      if (referralCode) {
+        try {
+          const idToken =
+            await user.getIdToken();
+
+          const referralResponse =
+            await fetch(
+              "/api/referrals/register",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  idToken,
+                  referralCode,
+                }),
+              }
+            );
+
+          const referralResult =
+            await referralResponse.json();
+
+          if (!referralResponse.ok) {
+            console.warn(
+              "Referral registration:",
+              referralResult.message
+            );
+          }
+        } catch (referralError) {
+          console.error(
+            "Referral registration error:",
+            referralError
+          );
         }
-      );
+      }
 
       showPopup(
         "Account created",
         "Your account has been created successfully. A verification email has been sent. Please check your Inbox or Spam folder before logging in.",
         "success"
       );
-
     } catch (error: any) {
-      console.error("Registration error:", error);
+      console.error(
+        "Registration error:",
+        error
+      );
 
       let message =
         "We couldn't create your account. Please try again.";
 
-      if (error?.code === "auth/email-already-in-use") {
+      if (
+        error?.code ===
+        "auth/email-already-in-use"
+      ) {
         message =
           "An account with this email already exists.";
       } else if (
-        error?.code === "auth/invalid-email"
+        error?.code ===
+        "auth/invalid-email"
       ) {
         message =
           "Please enter a valid email address.";
       } else if (
-        error?.code === "auth/weak-password"
+        error?.code ===
+        "auth/weak-password"
       ) {
         message =
           "Your password is too weak. Please choose a stronger password.";
@@ -113,7 +209,6 @@ export default function RegisterPage() {
         message,
         "error"
       );
-
     } finally {
       setLoading(false);
     }
@@ -138,7 +233,9 @@ export default function RegisterPage() {
               }`}
             >
               <span className="text-2xl font-black">
-                {popup.type === "success" ? "✓" : "!"}
+                {popup.type === "success"
+                  ? "✓"
+                  : "!"}
               </span>
             </div>
 
@@ -154,7 +251,9 @@ export default function RegisterPage() {
               onClick={() => {
                 setPopup(null);
 
-                if (popup.type === "success") {
+                if (
+                  popup.type === "success"
+                ) {
                   router.push("/login");
                 }
               }}
@@ -218,6 +317,23 @@ export default function RegisterPage() {
         />
 
         <label className="mb-2 block text-sm font-semibold text-gray-700">
+          Referral Code
+        </label>
+
+        <input
+          type="text"
+          placeholder="Enter referral code (optional)"
+          value={referralCode}
+          onChange={(e) =>
+            setReferralCode(
+              e.target.value.toUpperCase()
+            )
+          }
+          disabled={loading}
+          className="w-full border border-gray-200 bg-gray-50 p-4 rounded-2xl mb-5 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
+        />
+
+        <label className="mb-2 block text-sm font-semibold text-gray-700">
           Password
         </label>
 
@@ -241,11 +357,15 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={() =>
-              setShowPassword(!showPassword)
+              setShowPassword(
+                !showPassword
+              )
             }
             className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary"
           >
-            {showPassword ? "Hide" : "Show"}
+            {showPassword
+              ? "Hide"
+              : "Show"}
           </button>
 
         </div>

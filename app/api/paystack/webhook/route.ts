@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { adminDb } from "@/lib/firebase-admin";
+import { applyReferralReward } from "@/lib/referral-reward";
 
 export async function POST(req: Request) {
   try {
@@ -18,10 +19,11 @@ export async function POST(req: Request) {
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
 
     if (!secretKey) {
-      console.error("PAYSTACK_SECRET_KEY is missing");
-
       return NextResponse.json(
-        { success: false, message: "Server configuration error" },
+        {
+          success: false,
+          message: "Paystack secret key not configured",
+        },
         { status: 500 }
       );
     }
@@ -32,6 +34,7 @@ export async function POST(req: Request) {
       .digest("hex");
 
     if (
+      signature.length !== expectedSignature.length ||
       !crypto.timingSafeEqual(
         Buffer.from(signature),
         Buffer.from(expectedSignature)
@@ -45,6 +48,7 @@ export async function POST(req: Request) {
 
     const event = JSON.parse(rawBody);
 
+    // We only process successful charges.
     if (event.event !== "charge.success") {
       return NextResponse.json({
         success: true,
@@ -54,14 +58,14 @@ export async function POST(req: Request) {
 
     const payment = event.data;
 
-    const reference = payment?.reference;
-    const uid = payment?.metadata?.uid;
+    const reference = String(payment?.reference ?? "").trim();
+    const uid = String(payment?.metadata?.uid ?? "").trim();
 
     if (!reference || !uid) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing payment reference or user ID",
+          message: "Payment reference or user ID missing",
         },
         { status: 400 }
       );
@@ -87,72 +91,74 @@ export async function POST(req: Request) {
       .collection("users")
       .doc(uid);
 
-    const result = await adminDb.runTransaction(
-      async (transaction) => {
-        const paymentSnap =
-          await transaction.get(paymentRef);
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const paymentSnap = await transaction.get(paymentRef);
+      const userSnap = await transaction.get(userRef);
 
-        const userSnap =
-          await transaction.get(userRef);
-
-        // Prevent duplicate wallet credit.
-        if (paymentSnap.exists) {
-          return {
-            alreadyProcessed: true,
-          };
-        }
-
-        if (!userSnap.exists) {
-          throw new Error("User not found");
-        }
-
-        const currentBalance =
-          Number(userSnap.data()?.balance || 0);
-
-        const newBalance =
-          currentBalance + amount;
-
-        transaction.update(userRef, {
-          balance: newBalance,
-        });
-
-        transaction.set(paymentRef, {
-          reference,
-          uid,
-          amount,
-          currency:
-            payment.currency || "NGN",
-          status: "success",
-          channel:
-            payment.channel || null,
-          paidAt:
-            payment.paid_at || null,
-          createdAt:
-            new Date(),
-          source: "paystack_webhook",
-        });
-
+      // Already processed by webhook or /verify.
+      if (paymentSnap.exists) {
         return {
-          alreadyProcessed: false,
+          alreadyProcessed: true,
+          referralRewarded: false,
         };
       }
-    );
+
+      if (!userSnap.exists) {
+        throw new Error("User not found");
+      }
+
+      const currentBalance = Number(
+        userSnap.data()?.balance || 0
+      );
+
+      const newBalance = currentBalance + amount;
+
+      // Referral reward must be checked before any transaction writes.
+      const referralRewarded = await applyReferralReward(
+        transaction,
+        userRef,
+        userSnap,
+        reference,
+        amount
+      );
+
+      // Credit wallet.
+      transaction.update(userRef, {
+        balance: newBalance,
+      });
+
+      // Record payment.
+      transaction.set(paymentRef, {
+        reference,
+        uid,
+        amount,
+        currency: payment.currency || "NGN",
+        status: "success",
+        channel: payment.channel || null,
+        paidAt: payment.paid_at || null,
+        createdAt: new Date(),
+        source: "paystack_webhook",
+      });
+
+      return {
+        alreadyProcessed: false,
+        referralRewarded,
+      };
+    });
 
     return NextResponse.json({
       success: true,
       processed: !result.alreadyProcessed,
       reference,
+      referralRewarded: result.referralRewarded,
     });
   } catch (error) {
-    console.error(
-      "Paystack webhook error:",
-      error
-    );
+    console.error("Paystack webhook error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Webhook processing failed",
+        message: "Webhook processing error",
       },
       { status: 500 }
     );

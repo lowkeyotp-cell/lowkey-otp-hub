@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 import { adminDb } from "@/lib/firebase-admin";
+import { applyReferralReward } from "@/lib/referral-reward";
 
 export async function POST(req: Request) {
   try {
@@ -16,24 +17,27 @@ export async function POST(req: Request) {
     const idToken = authorization.substring(7);
     const decodedToken = await getAuth().verifyIdToken(idToken);
 
-   let reference = "";
+    let reference = "";
 
-try {
-  const body = await req.json();
-  reference = body.reference;
-} catch {
-  return NextResponse.json(
-    {
-      success: false,
-      message: "Payment reference missing.",
-    },
-    { status: 400 }
-  );
-}
+    try {
+      const body = await req.json();
+      reference = String(body.reference ?? "").trim();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Payment reference missing.",
+        },
+        { status: 400 }
+      );
+    }
 
     if (!reference) {
       return NextResponse.json(
-        { success: false, message: "Payment reference is required" },
+        {
+          success: false,
+          message: "Payment reference is required",
+        },
         { status: 400 }
       );
     }
@@ -72,7 +76,10 @@ try {
 
     if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
       return NextResponse.json(
-        { success: false, message: "Invalid payment amount" },
+        {
+          success: false,
+          message: "Invalid payment amount",
+        },
         { status: 400 }
       );
     }
@@ -82,7 +89,10 @@ try {
 
     if (metadataUid && metadataUid !== decodedToken.uid) {
       return NextResponse.json(
-        { success: false, message: "Payment ownership mismatch" },
+        {
+          success: false,
+          message: "Payment ownership mismatch",
+        },
         { status: 403 }
       );
     }
@@ -104,6 +114,7 @@ try {
         return {
           alreadyCredited: true,
           balance: Number(userSnap.data()?.balance || 0),
+          referralRewarded: false,
         };
       }
 
@@ -115,26 +126,38 @@ try {
         userSnap.data()?.balance || 0
       );
 
-      const newBalance = currentBalance + paidAmount;
+   const newBalance = currentBalance + paidAmount;
 
-      transaction.update(userRef, {
-        balance: newBalance,
-      });
+// Referral reward must be checked before any transaction writes.
+const referralRewarded = await applyReferralReward(
+  transaction,
+  userRef,
+  userSnap,
+  reference,
+  paidAmount
+);
 
-      transaction.set(transactionRef, {
-        reference,
-        uid: decodedToken.uid,
-        amount: paidAmount,
-        currency: payment.currency || "NGN",
-        status: "success",
-        channel: payment.channel || null,
-        paidAt: payment.paid_at || null,
-        createdAt: new Date(),
-      });
+// Credit the user's wallet.
+transaction.update(userRef, {
+  balance: newBalance,
+});
+
+// Record the successful payment.
+transaction.set(transactionRef, {
+  reference,
+  uid: decodedToken.uid,
+  amount: paidAmount,
+  currency: payment.currency || "NGN",
+  status: "success",
+  channel: payment.channel || null,
+  paidAt: payment.paid_at || null,
+  createdAt: new Date(),
+});
 
       return {
         alreadyCredited: false,
         balance: newBalance,
+        referralRewarded,
       };
     });
 
@@ -143,6 +166,7 @@ try {
       credited: !result.alreadyCredited,
       amount: paidAmount,
       balance: result.balance,
+      referralRewarded: result.referralRewarded,
     });
   } catch (error) {
     console.error("Paystack verification error:", error);

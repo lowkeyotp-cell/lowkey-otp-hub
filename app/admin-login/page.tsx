@@ -1,74 +1,89 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
+
+import { auth } from "@/lib/firebase";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
 
-  const [email, setEmail] =
-    useState("");
+  const [loading, setLoading] =
+    useState(false);
 
-  const [password, setPassword] =
-    useState("");
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
 
-  const handleLogin = () => {
+      const provider =
+        new GoogleAuthProvider();
 
-    if (
-      email === "lowkeyotp@gmail.com" &&
-      password === "lowkey123"
-    ) {
+      const result =
+        await signInWithPopup(
+          auth,
+          provider
+        );
 
-      window.location.href =
-        "/admin-dashboard";
+      const user = result.user;
 
-    } else {
+      if (
+        user.uid !==
+        "KSXJJqnu3FhuFcTye2lRlxxct6r2"
+      ) {
+        await auth.signOut();
 
-      alert("Invalid Admin Credentials");
+        alert(
+          "This Google account is not authorized as an admin."
+        );
 
+        return;
+      }
+
+      router.push("/admin-dashboard");
+
+    } catch (error) {
+      console.error(
+        "Admin Google login error:",
+        error
+      );
+
+      alert(
+        "Google sign-in failed. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
-
   };
 
   return (
-
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
 
       <div className="bg-white p-8 rounded-3xl shadow-sm w-full max-w-md">
 
-        <h1 className="text-3xl font-bold text-primary text-center mb-8">
+        <h1 className="text-3xl font-bold text-primary text-center mb-3">
           Admin Login
         </h1>
 
-        <input
-          type="email"
-          placeholder="Admin Email"
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-          className="w-full border p-4 rounded-2xl mb-5"
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-          className="w-full border p-4 rounded-2xl mb-6"
-        />
+        <p className="text-center text-gray-500 mb-8">
+          Sign in with your authorized Google account.
+        </p>
 
         <button
-          onClick={handleLogin}
-          className="bg-primary text-white py-4 rounded-2xl font-bold w-full"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full bg-primary text-white py-4 rounded-2xl font-bold disabled:opacity-50"
         >
-          Login
+          {loading
+            ? "Signing in..."
+            : "Continue with Google"}
         </button>
 
       </div>
 
     </main>
-
   );
-
 }

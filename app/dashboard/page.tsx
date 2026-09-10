@@ -1,328 +1,383 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  Menu,
-  Wallet,
-  ShoppingCart,
-  FileText,
-  CreditCard,
-  User,
-  LogOut,
-  ChevronRight,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { doc, getDoc } from "firebase/firestore";
+import { signOut } from "firebase/auth";
 
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
 
 export default function DashboardPage() {
   const router = useRouter();
 
-  const [menuOpen, setMenuOpen] = useState(false);
-
   const [balance, setBalance] = useState(0);
-
-  const [username, setUsername] = useState("");
-
-  const [orders, setOrders] = useState(0);
-
-  const [transactions, setTransactions] =
-    useState(0);
-
-  const [logoClicks, setLogoClicks] =
-    useState(0);
+  const [referralCode, setReferralCode] = useState("");
+  const [referralCopied, setReferralCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [logoClicks, setLogoClicks] = useState(0);
 
   useEffect(() => {
-    const loadUser = async () => {
-      const user = auth.currentUser;
+    const loadUserData = async () => {
+      try {
+        const user = auth.currentUser;
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+        if (!user) {
+          router.push("/login");
+          return;
+        }
 
-      const snap = await getDoc(
-        doc(db, "users", user.uid)
-      );
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
 
-      if (snap.exists()) {
-        const data = snap.data();
+        if (userSnap.exists()) {
+          const data = userSnap.data();
 
-        setUsername(data.username || "User");
-        setBalance(data.balance || 0);
+          setBalance(Number(data.balance || 0));
+
+          if (data.referralCode) {
+            setReferralCode(String(data.referralCode));
+          } else {
+            const idToken = await user.getIdToken();
+
+            const response = await fetch("/api/referrals/generate", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ idToken }),
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.referralCode) {
+              setReferralCode(result.referralCode);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Dashboard error:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadUser();
+    loadUserData();
   }, [router]);
 
   const handleLogoClick = () => {
-    const next = logoClicks + 1;
+    const nextClicks = logoClicks + 1;
+    setLogoClicks(nextClicks);
 
-    setLogoClicks(next);
-
-    if (next >= 7) {
+    if (nextClicks >= 7) {
       setLogoClicks(0);
       router.push("/admin-login");
     }
-
-    setTimeout(() => {
-      setLogoClicks(0);
-    }, 5000);
   };
 
-  const logout = async () => {
-    await auth.signOut();
+  const copyReferralLink = async () => {
+    if (!referralCode) return;
+
+    const link =
+      `${window.location.origin}/register?ref=${referralCode}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setReferralCopied(true);
+
+      setTimeout(() => {
+        setReferralCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
     router.push("/login");
   };
 
-  const quickActions = [
-    {
-      title: "Buy Number",
-      icon: ShoppingCart,
-      route: "/buy-number",
-    },
-    {
-      title: "Fund Wallet",
-      icon: Wallet,
-      route: "/fund-wallet",
-    },
-    {
-      title: "Orders",
-      icon: FileText,
-      route: "/orders",
-    },
-    {
-      title: "Transactions",
-      icon: CreditCard,
-      route: "/transactions",
-    },
-  ];
-  return (
-    <main className="min-h-screen bg-[#0f172a] text-white">
-
-      {menuOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40">
-          <div className="w-72 h-full bg-[#111827] p-6">
-
-            <div
-              onClick={handleLogoClick}
-              className="cursor-pointer"
-            >
-              <h1 className="text-2xl font-bold text-primary">
-                Lowkey OTP
-              </h1>
-            </div>
-
-            <div className="mt-10 space-y-5">
-
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="w-full flex justify-between items-center"
-              >
-                Dashboard
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                onClick={() => router.push("/buy-number")}
-                className="w-full flex justify-between items-center"
-              >
-                Buy Number
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                onClick={() => router.push("/orders")}
-                className="w-full flex justify-between items-center"
-              >
-                Orders
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                onClick={() => router.push("/transactions")}
-                className="w-full flex justify-between items-center"
-              >
-                Transactions
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                onClick={() => router.push("/fund-wallet")}
-                className="w-full flex justify-between items-center"
-              >
-                Fund Wallet
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                onClick={logout}
-                className="w-full flex justify-between items-center text-red-400"
-              >
-                Logout
-                <LogOut size={18} />
-              </button>
-
-            </div>
-
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#070b14] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-2xl font-black tracking-widest">
+            LOWKEY
           </div>
+          <p className="text-gray-500 mt-2 text-sm">
+            Loading dashboard...
+          </p>
         </div>
-      )}
+      </main>
+    );
+  }
 
-      <div className="flex items-center justify-between px-6 pt-8">
+  return (
+    <main className="min-h-screen bg-[#070b14] text-white pb-10">
 
-        <button
-          onClick={() => setMenuOpen(true)}
-        >
-          <Menu size={30} />
-        </button>
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-white/5 bg-[#070b14]/95 backdrop-blur-xl">
+        <div className="max-w-md mx-auto px-5 py-5 flex items-center justify-between">
 
-        <div
-          onClick={handleLogoClick}
-          className="cursor-pointer"
-        >
-          <h1 className="text-xl font-bold text-primary">
-            Lowkey OTP
+          <button
+            type="button"
+            onClick={handleLogoClick}
+            className="text-left active:scale-95 transition"
+          >
+            <p className="text-xl font-black tracking-[0.25em] text-white">
+              LOWKEY
+            </p>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-blue-400">
+              OTP Marketplace
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.push("/notifications")}
+            className="w-11 h-11 rounded-2xl border border-white/10 bg-white/[0.04] flex items-center justify-center text-lg"
+          >
+            🔔
+          </button>
+
+        </div>
+      </header>
+
+      <div className="max-w-md mx-auto px-5 pt-6">
+
+        {/* Welcome */}
+        <div className="mb-6">
+          <p className="text-sm text-gray-500">
+            Welcome back
+          </p>
+          <h1 className="text-3xl font-black mt-1">
+            Your Dashboard
           </h1>
         </div>
 
-        <button
-          onClick={() => router.push("/notifications")}
+        {/* Wallet */}
+        <div className="relative overflow-hidden rounded-[28px] border border-blue-500/20 bg-gradient-to-br from-[#101a33] to-[#0b1020] p-6 shadow-2xl shadow-blue-950/20">
+
+          <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-blue-500/10 blur-3xl" />
+
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-400">
+                Available Balance
+              </p>
+
+              <span className="rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 text-[11px] font-semibold text-green-400">
+                ● Wallet
+              </span>
+            </div>
+
+            <p className="text-4xl font-black mt-4 tracking-tight">
+              ₦{balance.toLocaleString()}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push("/fund-wallet")}
+              className="mt-6 w-full rounded-2xl bg-blue-600 py-4 font-bold text-white shadow-lg shadow-blue-600/20 active:scale-[0.98] transition"
+            >
+              + Fund Wallet
+            </button>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <section className="mt-7">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">
+              Quick Actions
+            </h2>
+            <span className="text-xs text-gray-500">
+              Fast access
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+
+            <Link
+              href="/buy-number"
+              className="rounded-3xl border border-blue-500/20 bg-blue-500/[0.08] p-5 active:scale-[0.98] transition"
+            >
+              <div className="text-2xl mb-4">📱</div>
+              <p className="font-bold">Buy Number</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Get an OTP number
+              </p>
+            </Link>
+
+            <Link
+              href="/orders"
+              className="rounded-3xl border border-purple-500/20 bg-purple-500/[0.08] p-5 active:scale-[0.98] transition"
+            >
+              <div className="text-2xl mb-4">📦</div>
+              <p className="font-bold">My Orders</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Track your OTPs
+              </p>
+            </Link>
+
+            <Link
+              href="/transactions"
+              className="rounded-3xl border border-green-500/20 bg-green-500/[0.08] p-5 active:scale-[0.98] transition"
+            >
+              <div className="text-2xl mb-4">💳</div>
+              <p className="font-bold">Transactions</p>
+              <p className="text-xs text-gray-500 mt-1">
+                View wallet history
+              </p>
+            </Link>
+
+            <Link
+              href="/notifications"
+              className="rounded-3xl border border-orange-500/20 bg-orange-500/[0.08] p-5 active:scale-[0.98] transition"
+            >
+              <div className="text-2xl mb-4">🔔</div>
+              <p className="font-bold">Notifications</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Important updates
+              </p>
+            </Link>
+
+          </div>
+        </section>
+
+        {/* 7 Click OTP */}
+        <section className="mt-7">
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-6">
+
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-xl">
+                ⚡
+              </div>
+
+              <div>
+                <h2 className="font-bold text-lg">
+                  7 Click OTP
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Fast access to your OTP services.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push("/buy-number")}
+              className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3.5 text-sm font-bold active:scale-[0.98] transition"
+            >
+              Get Started →
+            </button>
+
+          </div>
+        </section>
+
+        {/* Referral */}
+        <section className="mt-7">
+          <div className="rounded-[28px] border border-yellow-500/20 bg-gradient-to-br from-yellow-500/[0.08] to-transparent p-6">
+
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-yellow-400 font-bold">
+                  Referral Program
+                </p>
+
+                <h2 className="text-xl font-black mt-2">
+                  Earn ₦100
+                </h2>
+
+                <p className="text-sm text-gray-400 mt-2 leading-6">
+                  Invite a user and earn ₦100 when they make
+                  their first successful deposit of ₦500 or more.
+                </p>
+              </div>
+
+              <div className="text-3xl">
+                🎁
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-xs text-gray-500 mb-2">
+                Your referral code
+              </p>
+
+              <div className="flex gap-2">
+                <div className="flex-1 rounded-2xl border border-white/10 bg-black/20 px-4 py-3.5 text-center font-black tracking-[0.2em]">
+                  {referralCode || "Generating..."}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={copyReferralLink}
+                  className="rounded-2xl bg-yellow-500 px-4 py-3 font-black text-black active:scale-95 transition"
+                >
+                  {referralCopied ? "✓" : "Copy"}
+                </button>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4">
+              Deposits below ₦500 do not qualify.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push("/referrals")}
+              className="mt-4 w-full rounded-2xl border border-yellow-500/20 bg-yellow-500/10 py-3.5 text-sm font-bold text-yellow-400 active:scale-[0.98] transition"
+            >
+              Open Referral Center →
+            </button>
+
+          </div>
+        </section>
+
+        {/* Support */}
+        <a
+          href="https://wa.me/2348036879380?text=Hello%2C%20is%20anyone%20available%3F"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-7 flex items-center justify-between rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.06] p-5 active:scale-[0.98] transition"
         >
-          <Bell size={26} />
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
+              💬
+            </div>
+
+            <div>
+              <p className="font-bold">
+                Contact Support
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Need help? Chat with us
+              </p>
+            </div>
+          </div>
+
+          <span className="text-gray-500">
+            →
+          </span>
+        </a>
+
+        {/* Logout */}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-4 w-full rounded-3xl border border-red-500/10 bg-red-500/[0.05] py-4 text-sm font-bold text-red-400 active:scale-[0.98] transition"
+        >
+          Log Out
         </button>
 
-      </div>
-      <div className="px-6 mt-8">
-
-        <div className="rounded-3xl bg-gradient-to-r from-primary to-primary p-6">
-
-          <p className="text-white/80">
-            Wallet Balance
-          </p>
-
-          <h2 className="text-4xl font-bold mt-2">
-            ₦{Number(balance).toLocaleString()}
-          </h2>
-
-          <p className="mt-2 text-white/80">
-            Welcome back, {username}
-          </p>
-
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mt-8">
-
-          <div className="bg-[#1e293b] rounded-2xl p-5">
-            <p className="text-gray-400 text-sm">
-              Orders
-            </p>
-
-            <h2 className="text-3xl font-bold mt-2">
-              {orders}
-            </h2>
-          </div>
-
-          <div className="bg-[#1e293b] rounded-2xl p-5">
-            <p className="text-gray-400 text-sm">
-              Transactions
-            </p>
-
-            <h2 className="text-3xl font-bold mt-2">
-              {transactions}
-            </h2>
-          </div>
-
-        </div>
-
-        <h2 className="text-xl font-bold mt-10 mb-4">
-          Quick Actions
-        </h2>
-
-        <div className="grid grid-cols-2 gap-4">
-
-          {quickActions.map((item) => {
-
-            const Icon = item.icon;
-
-            return (
-
-              <button
-                key={item.title}
-                onClick={() => router.push(item.route)}
-                className="bg-[#1e293b] rounded-3xl p-6 flex flex-col items-center active:scale-95 transition"
-              >
-
-                <Icon
-                  size={34}
-                  className="text-primary"
-                />
-
-                <span className="mt-4 font-semibold">
-                  {item.title}
-                </span>
-
-              </button>
-
-            );
-
-          })}
-
-        </div>
+        <p className="text-center text-[10px] text-gray-700 mt-7 tracking-widest uppercase">
+          LOWKEY OTP • Digital Service Hub
+        </p>
 
       </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-[#111827] border-t border-gray-800">
-
-        <div className="grid grid-cols-4 py-4">
-
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex flex-col items-center text-primary"
-          >
-            <Wallet size={24} />
-            <span className="text-xs mt-1">
-              Home
-            </span>
-          </button>
-
-          <button
-            onClick={() => router.push("/buy-number")}
-            className="flex flex-col items-center"
-          >
-            <ShoppingCart size={24} />
-            <span className="text-xs mt-1">
-              Buy
-            </span>
-          </button>
-
-          <button
-            onClick={() => router.push("/orders")}
-            className="flex flex-col items-center"
-          >
-            <FileText size={24} />
-            <span className="text-xs mt-1">
-              Orders
-            </span>
-          </button>
-
-          <button
-            onClick={() => router.push("/fund-wallet")}
-            className="flex flex-col items-center"
-          >
-            <User size={24} />
-            <span className="text-xs mt-1">
-              Wallet
-            </span>
-          </button>
-
-        </div>
-
-      </div>
-
     </main>
   );
 }

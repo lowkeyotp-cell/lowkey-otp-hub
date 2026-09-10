@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
@@ -86,36 +87,101 @@ export async function POST(req: Request) {
       }
     );
 
-    const exchangeData = await exchangeResponse.json();
+    const exchangeData =
+      await exchangeResponse.json();
 
-    const usdToNgn = Number(
+    const liveUsdToNgn = Number(
       exchangeData?.rates?.NGN
     );
 
-    if (!usdToNgn || !Number.isFinite(usdToNgn)) {
+    if (
+      !liveUsdToNgn ||
+      !Number.isFinite(liveUsdToNgn)
+    ) {
       return NextResponse.json({
         success: false,
-        message: "Failed to get live USD/NGN rate",
+        message:
+          "Failed to get live USD/NGN rate",
       });
     }
 
     // ─────────────────────────────
-    // 5. Convert SMSPool cost to NGN
+    // 5. Load Admin pricing settings
     // ─────────────────────────────
 
-    const costPrice = usdPrice * usdToNgn;
+    const settingsRef = adminDb
+      .collection("platformSettings")
+      .doc("pricing");
+
+    const settingsSnap =
+      await settingsRef.get();
+
+    const settings =
+      settingsSnap.exists
+        ? settingsSnap.data()
+        : null;
+
+    const useCustomUsdRate =
+      Boolean(
+        settings?.useCustomUsdRate
+      );
+
+    const customUsdToNgn =
+      Number(
+        settings?.customUsdToNgn ?? 0
+      );
+
+    const markupPercent =
+      Number(
+        settings?.markupPercent ?? 0
+      );
 
     // ─────────────────────────────
-    // 6. Add your ₦350 markup
+    // 6. Choose active exchange rate
     // ─────────────────────────────
 
-    const PROFIT_MARKUP = 350;
+    const usdToNgn =
+      useCustomUsdRate &&
+      Number.isFinite(customUsdToNgn) &&
+      customUsdToNgn > 0
+        ? customUsdToNgn
+        : liveUsdToNgn;
+
+    // ─────────────────────────────
+    // 7. Convert SMSPool cost to NGN
+    // ─────────────────────────────
+
+    const costPrice =
+      usdPrice * usdToNgn;
+
+    // ─────────────────────────────
+    // 8. Apply Admin markup
+    // ─────────────────────────────
+
+    const markupAmount =
+      costPrice *
+      (markupPercent / 100);
+
+    const calculatedSellingPrice =
+      costPrice + markupAmount;
+
+    // ─────────────────────────────
+    // 9. Signal special price
+    // ─────────────────────────────
+    // Keep your existing Signal rule.
+    // Change this later from Admin if desired.
 
     const sellingPrice =
-      costPrice + PROFIT_MARKUP;
+      String(country) === "1" &&
+      Number(service) === 829
+        ? 100
+        : calculatedSellingPrice;
+
+    const grossProfit =
+      sellingPrice - costPrice;
 
     // ─────────────────────────────
-    // 7. Return everything
+    // 10. Return pricing information
     // ─────────────────────────────
 
     return NextResponse.json({
@@ -124,17 +190,30 @@ export async function POST(req: Request) {
       // Customer pays this
       price: sellingPrice,
 
-      // Your estimated SMSPool cost
+      // Estimated SMSPool cost in NGN
       costPrice: costPrice,
 
-      // Your gross markup
-      margin: PROFIT_MARKUP,
+      // Gross profit on this purchase
+      profit: grossProfit,
+
+      // Admin markup percentage
+      markupPercent: markupPercent,
+
+      // Actual markup amount
+      markupAmount: markupAmount,
 
       // Original SMSPool USD price
       usdPrice: usdPrice,
 
-      // Live USD → NGN exchange rate
+      // Live market rate
+      liveUsdToNgn: liveUsdToNgn,
+
+      // Rate actually used
       usdToNgn: usdToNgn,
+
+      // Whether Admin custom rate is active
+      usingCustomUsdRate:
+        useCustomUsdRate,
 
       // Pool selected
       pool: cheapest.pool,
@@ -142,9 +221,11 @@ export async function POST(req: Request) {
       country: cheapest.country,
       service: cheapest.service,
     });
-
   } catch (error) {
-    console.error("Pricing error:", error);
+    console.error(
+      "Pricing error:",
+      error
+    );
 
     return NextResponse.json({
       success: false,

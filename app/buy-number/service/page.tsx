@@ -10,7 +10,7 @@ type ServiceData = {
   serviceName: string;
   serviceId: string | number;
   pool?: string | number;
-  livePrice?: number;
+  customerPrice?: number;
   costPrice?: number;
   margin?: number;
 };
@@ -30,10 +30,14 @@ export default function ServicePage() {
   const [checkingOtp, setCheckingOtp] =
     useState(false);
 
+const [timeRemaining, setTimeRemaining] =
+  useState<number | null>(null);
+
   const [order, setOrder] = useState<{
-    number: string;
-    orderId: string | number;
-  } | null>(null);
+  number: string;
+  orderId: string | number;
+  expiresIn: number;
+} | null>(null);
 
   const [otp, setOtp] =
     useState<string | null>(null);
@@ -67,20 +71,72 @@ export default function ServicePage() {
         const selected =
           JSON.parse(stored);
 
-        const response =
-          await fetch("/api/pricing", {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              country: selected.country,
-              service: selected.serviceId,
-              pool: selected.pool,
-            }),
-            cache: "no-store",
-          });
+const savedOrder =
+  localStorage.getItem("activeOrder");
+
+if (savedOrder) {
+  try {
+    const active = JSON.parse(savedOrder);
+
+    const expiresAt =
+      Number(active.createdAt) +
+      Number(active.expiresIn || 1200) * 1000;
+
+    const activeServiceId =
+      String(active.service?.serviceId ?? "");
+
+    const selectedServiceId =
+      String(selected.serviceId ?? "");
+
+    const sameService =
+      activeServiceId === selectedServiceId;
+
+    if (
+      Date.now() < expiresAt &&
+      sameService
+    ) {
+      setOrder({
+        number: String(active.number || ""),
+        orderId: active.orderId,
+        expiresIn:
+          Number(active.expiresIn || 1200),
+      });
+
+      setOtpMessage(
+        "Waiting for verification code..."
+      );
+
+      setCheckingOtp(true);
+    } else {
+      localStorage.removeItem(
+        "activeOrder"
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Active order restore error:",
+      error
+    );
+
+    localStorage.removeItem(
+      "activeOrder"
+    );
+  }
+}
+
+const response =
+  await fetch("/api/pricing", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      country: selected.country,
+      service: selected.serviceId,
+      pool: selected.pool,
+    }),
+    cache: "no-store",
+  });
 
         const price =
           await response.json();
@@ -91,7 +147,7 @@ export default function ServicePage() {
         ) {
           setServiceData({
             ...selected,
-            livePrice: undefined,
+           customerPrice: undefined,
           });
 
           return;
@@ -99,8 +155,8 @@ export default function ServicePage() {
 
         setServiceData({
           ...selected,
-          livePrice:
-            Number(price.price),
+         customerPrice:
+  Number(price.price),
           costPrice:
             Number(price.costPrice),
           margin:
@@ -231,9 +287,9 @@ export default function ServicePage() {
       }
 
       const price =
-        Number(
-          serviceData.livePrice
-        );
+  Number(
+    serviceData.customerPrice
+  );
 
       if (
         !Number.isFinite(price) ||
@@ -344,14 +400,22 @@ export default function ServicePage() {
           return;
         }
 
-        setOrder({
-          number:
-            String(
-              result.number || ""
-            ),
-          orderId:
-            result.orderId,
-        });
+      setOrder({
+  number: String(result.number || ""),
+  orderId: result.orderId,
+  expiresIn: Number(result.expiresIn || 1200),
+});
+
+localStorage.setItem(
+  "activeOrder",
+  JSON.stringify({
+    number: String(result.number || ""),
+    orderId: result.orderId,
+    expiresIn: result.expiresIn,
+    service: serviceData,
+    createdAt: Date.now(),
+  })
+);
 
         setOtp(null);
         setOtpMessage(
@@ -402,10 +466,11 @@ export default function ServicePage() {
         const timeout =
           5 * 60 * 1000;
 
-        while (
-          Date.now() - started <
-          timeout
-        ) {
+       while (
+  Date.now() - started <
+    timeout &&
+  timeRemaining !== 0
+) {
           try {
             const response =
               await fetch(
@@ -425,6 +490,24 @@ export default function ServicePage() {
 
             const data =
               await response.json();
+
+if (
+  data.status === "cancelled"
+) {
+  localStorage.removeItem(
+    "activeOrder"
+  );
+
+  setOrder(null);
+  setOtp(null);
+  setCheckingOtp(false);
+
+  setOtpMessage(
+    "This order was cancelled and refunded."
+  );
+
+  return;
+}
 
             if (
               data.success &&
@@ -471,6 +554,114 @@ export default function ServicePage() {
         setCheckingOtp(false);
       }
     };
+
+  useEffect(() => {
+    if (!order) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const stored =
+      localStorage.getItem("activeOrder");
+
+    if (!stored) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    try {
+      const active = JSON.parse(stored);
+
+      const expiresAt =
+        Number(active.createdAt) +
+        Number(active.expiresIn || 1200) * 1000;
+
+      const updateCountdown = async () => {
+        const remaining = Math.max(
+          0,
+          Math.ceil(
+            (expiresAt - Date.now()) / 1000
+          )
+        );
+
+        setTimeRemaining(remaining);
+
+       if (remaining <= 0) {
+  setCheckingOtp(false);
+
+  const orderId = active.orderId;
+
+  try {
+    const response = await fetch(
+      "/api/expire-order",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          orderId,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (
+      response.ok &&
+      result.success &&
+      result.expired
+    ) {
+      localStorage.removeItem(
+        "activeOrder"
+      );
+
+      setOrder(null);
+      setOtp(null);
+
+      setOtpMessage(
+        `Number expired. ₦${Number(
+          result.refundAmount || 0
+        ).toLocaleString()} has been refunded to your wallet.`
+      );
+    } else {
+      setOtpMessage(
+        result.message ||
+          "Number expired. Refund is being processed."
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Expiration refund error:",
+      error
+    );
+
+    setOtpMessage(
+      "Number expired. We couldn't process the refund right now."
+    );
+  }
+}
+      };
+
+      updateCountdown();
+
+      const timer = setInterval(
+        updateCountdown,
+        1000
+      );
+
+      return () => clearInterval(timer);
+    } catch (error) {
+      console.error(
+        "Countdown error:",
+        error
+      );
+
+      setTimeRemaining(null);
+    }
+  }, [order]);
 
   const closePopup =
     () => {
@@ -526,6 +717,24 @@ export default function ServicePage() {
               <h2 className="text-3xl font-black mt-2 tracking-wide">
                 {order.number}
               </h2>
+
+{timeRemaining !== null && (
+  <div className="mt-3">
+    <p className="text-gray-400 text-sm">
+      Time remaining
+    </p>
+
+    <p className="text-xl font-black text-primary">
+      {Math.floor(timeRemaining / 60)
+        .toString()
+        .padStart(2, "0")}
+      :
+      {(timeRemaining % 60)
+        .toString()
+        .padStart(2, "0")}
+    </p>
+  </div>
+)}
 
               <div className="mt-6 h-px bg-white/10" />
 
@@ -625,11 +834,11 @@ export default function ServicePage() {
                 </p>
 
                 <h2 className="text-4xl font-black text-primary-light mt-1">
-                  {serviceData?.livePrice
-                    ? `₦${Math.ceil(
-                        serviceData.livePrice
-                      ).toLocaleString()}`
-                    : "—"}
+                 {serviceData?.customerPrice
+  ? `₦${Math.ceil(
+      serviceData.customerPrice
+    ).toLocaleString()}`
+  : "—"}
                 </h2>
               </div>
 
