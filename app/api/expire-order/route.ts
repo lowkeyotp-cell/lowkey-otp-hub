@@ -1,8 +1,66 @@
 import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import {
+  adminAuth,
+  adminDb,
+} from "@/lib/firebase-admin";
 
 export async function POST(req: Request) {
   try {
+    const cronSecret = process.env.CRON_SECRET;
+    const authorization = req.headers.get(
+      "authorization"
+    );
+
+    const isCronRequest =
+      Boolean(cronSecret) &&
+      authorization ===
+        `Bearer ${cronSecret}`;
+
+    let authenticatedUid: string | null = null;
+
+    if (!isCronRequest) {
+      if (
+        !authorization ||
+        !authorization.startsWith("Bearer ")
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Unauthorized.",
+          },
+          { status: 401 }
+        );
+      }
+
+      const token =
+        authorization.substring(7).trim();
+
+      if (!token) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Unauthorized.",
+          },
+          { status: 401 }
+        );
+      }
+
+      try {
+        const decodedToken =
+          await adminAuth.verifyIdToken(token);
+
+        authenticatedUid = decodedToken.uid;
+      } catch {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Unauthorized.",
+          },
+          { status: 401 }
+        );
+      }
+    }
+
     const body = await req.json();
 
     const orderId = String(
@@ -41,6 +99,23 @@ export async function POST(req: Request) {
     const orderDoc = ordersSnap.docs[0];
     const orderRef = orderDoc.ref;
     const orderData = orderDoc.data();
+    /*
+     * User requests may only expire their own order.
+     * Cron requests are allowed to process any expired order.
+     */
+    if (
+      !isCronRequest &&
+      authenticatedUid !==
+        String(orderData.uid ?? "").trim()
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 403 }
+      );
+    }
 
     /*
      * Only waiting orders can expire.

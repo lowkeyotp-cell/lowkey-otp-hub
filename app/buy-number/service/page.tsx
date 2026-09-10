@@ -592,19 +592,28 @@ if (
   const orderId = active.orderId;
 
   try {
-    const response = await fetch(
-      "/api/expire-order",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify({
-          orderId,
-        }),
-      }
-    );
+   const user = auth.currentUser;
+
+if (!user) {
+  return;
+}
+
+const token = await getIdToken(user);
+
+const response = await fetch(
+  "/api/expire-order",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type":
+        "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      orderId,
+    }),
+  }
+);
 
     const result =
       await response.json();
