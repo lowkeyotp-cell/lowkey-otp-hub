@@ -433,8 +433,7 @@ await adminDb.collection("orders").add({
   createdAt: new Date(),
 
   expiresAt: new Date(
-    Date.now() +
-      Number(purchaseData.expires_in || 1200) * 1000
+    Date.now() + 600 * 1000
   ),
 });
 
