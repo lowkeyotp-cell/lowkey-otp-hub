@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type Service = {
@@ -62,19 +63,19 @@ export default function USAServicesPage() {
       </h1>
 
 <div className="mb-6 flex flex-wrap gap-3 text-sm">
-  <a
+  <Link
     href="/all-countries"
     className="text-blue-600 hover:underline"
   >
     ← All Countries
-  </a>
+  </Link>
 
-  <a
+  <Link
     href="/buy-number"
     className="text-blue-600 hover:underline"
   >
     Buy Number
-  </a>
+  </Link>
 </div>
 
 <section className="mb-8 max-w-3xl">
