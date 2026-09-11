@@ -80,7 +80,7 @@ if (savedOrder) {
 
     const expiresAt =
       Number(active.createdAt) +
-      Number(active.expiresIn || 1200) * 1000;
+      Number(active.expiresIn || 600) * 1000;
 
     const activeServiceId =
       String(active.service?.serviceId ?? "");
@@ -99,7 +99,7 @@ if (savedOrder) {
         number: String(active.number || ""),
         orderId: active.orderId,
         expiresIn:
-          Number(active.expiresIn || 1200),
+          Number(active.expiresIn || 600),
       });
 
       setOtpMessage(
@@ -403,7 +403,7 @@ const response =
       setOrder({
   number: String(result.number || ""),
   orderId: result.orderId,
-  expiresIn: Number(result.expiresIn || 1200),
+  expiresIn: Number(result.expiresIn || 600),
 });
 
 localStorage.setItem(
@@ -574,7 +574,7 @@ if (
 
       const expiresAt =
         Number(active.createdAt) +
-        Number(active.expiresIn || 1200) * 1000;
+        Number(active.expiresIn || 600) * 1000;
 
       const updateCountdown = async () => {
         const remaining = Math.max(
