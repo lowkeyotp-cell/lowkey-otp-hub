@@ -64,7 +64,19 @@ export async function GET(req: Request) {
 
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
-      `https://${process.env.VERCEL_URL}`;
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : null);
+
+    if (!baseUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Application URL is not configured.",
+        },
+        { status: 500 }
+      );
+    }
 
     const results: Array<{
       orderId: string;
@@ -80,6 +92,7 @@ export async function GET(req: Request) {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
+              Authorization: `Bearer ${cronSecret}`,
             },
             body: JSON.stringify({ orderId }),
             cache: "no-store",
