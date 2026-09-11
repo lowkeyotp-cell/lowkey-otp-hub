@@ -484,8 +484,7 @@ await adminDb.collection("platformTransactions").add({
         purchaseData.pool ??
         cheapest.pool,
 
-      expiresIn:
-        purchaseData.expires_in,
+      expiresIn: 600,
 
       price:
         walletAmount,
