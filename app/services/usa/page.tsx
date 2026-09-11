@@ -61,6 +61,22 @@ export default function USAServicesPage() {
         USA OTP Services
       </h1>
 
+<div className="mb-6 flex flex-wrap gap-3 text-sm">
+  <a
+    href="/all-countries"
+    className="text-blue-600 hover:underline"
+  >
+    ← All Countries
+  </a>
+
+  <a
+    href="/buy-number"
+    className="text-blue-600 hover:underline"
+  >
+    Buy Number
+  </a>
+</div>
+
       {loading ? (
         <p className="text-gray-600">
           Loading live services...

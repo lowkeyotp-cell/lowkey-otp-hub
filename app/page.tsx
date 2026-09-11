@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
+import FAQSchema from "@/app/components/FAQSchema";
 
 export default function Home() {
 const router = useRouter();
@@ -36,6 +37,7 @@ const handleProtectedNavigation = (path: string) => {
 
   return (
     <main className="min-h-screen bg-[#07111f] text-white overflow-hidden">
+<FAQSchema />
 
       {/* Background glow */}
       <div className="fixed inset-0 pointer-events-none">
@@ -63,6 +65,14 @@ const handleProtectedNavigation = (path: string) => {
           <Link href="/" className="hover:text-primary transition">
             Home
           </Link>
+
+<Link href="/all-countries" className="hover:text-primary transition">
+  Countries
+</Link>
+
+<Link href="/services/usa" className="hover:text-primary transition">
+  USA Numbers
+</Link>
 
           <Link href="/buy-number" className="hover:text-primary transition">
             Buy Number
@@ -314,6 +324,111 @@ const handleProtectedNavigation = (path: string) => {
         </div>
 
       </section>
+
+{/* Explore */}
+<section className="relative z-10 px-5 pb-20">
+  <div className="max-w-4xl mx-auto">
+
+    <h2 className="text-2xl sm:text-3xl font-black text-center">
+      Explore LOWKEY OTP
+    </h2>
+
+    <p className="text-gray-500 text-center mt-3">
+      Browse supported countries and available OTP services.
+    </p>
+
+    <div className="grid sm:grid-cols-2 gap-4 mt-8">
+
+      <Link
+        href="/all-countries"
+        className="rounded-2xl bg-white/[0.04] border border-white/10 p-6 hover:bg-white/[0.08] transition"
+      >
+        <h3 className="font-bold text-lg">
+          All Countries
+        </h3>
+
+        <p className="text-gray-500 text-sm mt-2">
+          Explore supported countries and OTP options.
+        </p>
+      </Link>
+
+      <Link
+        href="/services/usa"
+        className="rounded-2xl bg-white/[0.04] border border-white/10 p-6 hover:bg-white/[0.08] transition"
+      >
+        <h3 className="font-bold text-lg">
+          USA OTP Numbers
+        </h3>
+
+        <p className="text-gray-500 text-sm mt-2">
+          View available USA verification services.
+        </p>
+      </Link>
+
+    </div>
+
+  </div>
+</section>
+
+{/* FAQ */}
+<section className="relative z-10 px-5 pb-20">
+  <div className="max-w-4xl mx-auto">
+
+    <h2 className="text-3xl sm:text-4xl font-black text-center">
+      Frequently Asked Questions
+    </h2>
+
+    <p className="text-gray-500 text-center mt-3">
+      Common questions about LOWKEY OTP.
+    </p>
+
+    <div className="mt-8 space-y-4">
+
+      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
+        <summary className="font-bold cursor-pointer">
+          What is LOWKEY OTP?
+        </summary>
+        <p className="text-gray-500 mt-3 leading-relaxed">
+          LOWKEY OTP is an online marketplace for supported temporary
+          phone numbers and verification codes.
+        </p>
+      </details>
+
+      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
+        <summary className="font-bold cursor-pointer">
+          How do I buy a number?
+        </summary>
+        <p className="text-gray-500 mt-3 leading-relaxed">
+          Create an account, fund your wallet, choose a supported
+          country and service, then purchase an available number.
+        </p>
+      </details>
+
+      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
+        <summary className="font-bold cursor-pointer">
+          Which countries are supported?
+        </summary>
+        <p className="text-gray-500 mt-3 leading-relaxed">
+          Supported countries and available services can change based
+          on current availability. Visit the All Countries page to see
+          available options.
+        </p>
+      </details>
+
+      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
+        <summary className="font-bold cursor-pointer">
+          How long does an OTP order remain active?
+        </summary>
+        <p className="text-gray-500 mt-3 leading-relaxed">
+          OTP orders have a limited active period. The countdown shown
+          on the order page indicates the remaining time.
+        </p>
+      </details>
+
+    </div>
+
+  </div>
+</section>
 
       {/* Contact */}
       <section className="relative z-10 px-5 pb-20 text-center">
