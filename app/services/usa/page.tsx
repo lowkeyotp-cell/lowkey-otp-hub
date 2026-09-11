@@ -77,6 +77,14 @@ export default function USAServicesPage() {
   </a>
 </div>
 
+<section className="mb-8 max-w-3xl">
+  <p className="text-gray-600 leading-relaxed">
+    Get temporary USA phone numbers for supported OTP and SMS
+    verification services through LOWKEY OTP. Choose an available
+    service below to view the current price and purchase a number.
+  </p>
+</section>
+
       {loading ? (
         <p className="text-gray-600">
           Loading live services...
