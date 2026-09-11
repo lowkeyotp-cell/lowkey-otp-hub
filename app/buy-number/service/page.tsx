@@ -78,10 +78,6 @@ if (savedOrder) {
   try {
     const active = JSON.parse(savedOrder);
 
-    const expiresAt =
-      Number(active.createdAt) +
-      Number(active.expiresIn || 600) * 1000;
-
     const activeServiceId =
       String(active.service?.serviceId ?? "");
 
@@ -91,26 +87,101 @@ if (savedOrder) {
     const sameService =
       activeServiceId === selectedServiceId;
 
-    if (
-      Date.now() < expiresAt &&
-      sameService
-    ) {
-      setOrder({
-        number: String(active.number || ""),
-        orderId: active.orderId,
-        expiresIn:
-          Number(active.expiresIn || 600),
-      });
+    if (!sameService) {
+      localStorage.removeItem("activeOrder");
+    } else if (active.orderId) {
+      const user = auth.currentUser;
 
-      setOtpMessage(
-        "Waiting for verification code..."
-      );
+      if (user) {
+        const token = await getIdToken(user);
 
-      setCheckingOtp(true);
-    } else {
-      localStorage.removeItem(
-        "activeOrder"
-      );
+        const orderResponse =
+          await fetch(
+            `/api/order?orderId=${encodeURIComponent(
+              String(active.orderId)
+            )}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+              cache: "no-store",
+            }
+          );
+
+        const orderData =
+          await orderResponse.json();
+
+        if (
+          orderResponse.ok &&
+          orderData.success &&
+          orderData.order?.expiresAt
+        ) {
+          const serverExpiresAt =
+            Number(orderData.order.expiresAt);
+
+          if (
+            Date.now() < serverExpiresAt &&
+            String(orderData.order.status) ===
+              "waiting"
+          ) {
+            const remainingSeconds =
+              Math.max(
+                0,
+                Math.ceil(
+                  (serverExpiresAt -
+                    Date.now()) /
+                    1000
+                )
+              );
+
+            setOrder({
+              number:
+                String(
+                  orderData.order.number ||
+                    active.number ||
+                    ""
+                ),
+              orderId:
+                orderData.order.orderId,
+              expiresIn:
+                remainingSeconds,
+            });
+
+            localStorage.setItem(
+              "activeOrder",
+              JSON.stringify({
+                ...active,
+                number:
+                  String(
+                    orderData.order.number ||
+                      active.number ||
+                      ""
+                  ),
+                orderId:
+                  orderData.order.orderId,
+                expiresAt:
+                  serverExpiresAt,
+              })
+            );
+
+            setOtpMessage(
+              "Waiting for verification code..."
+            );
+
+            setCheckingOtp(true);
+          } else {
+            localStorage.removeItem(
+              "activeOrder"
+            );
+          }
+        } else {
+          localStorage.removeItem(
+            "activeOrder"
+          );
+        }
+      }
     }
   } catch (error) {
     console.error(
@@ -412,11 +483,11 @@ localStorage.setItem(
     number: String(result.number || ""),
     orderId: result.orderId,
     expiresIn: result.expiresIn,
+    expiresAt: Number(result.expiresAt || 0),
     service: serviceData,
     createdAt: Date.now(),
   })
 );
-
         setOtp(null);
         setOtpMessage(
           "Waiting for verification code..."
@@ -572,9 +643,7 @@ if (
     try {
       const active = JSON.parse(stored);
 
-      const expiresAt =
-        Number(active.createdAt) +
-        Number(active.expiresIn || 600) * 1000;
+     const expiresAt = Number(active.expiresAt || 0);
 
       const updateCountdown = async () => {
         const remaining = Math.max(

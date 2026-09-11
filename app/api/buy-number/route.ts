@@ -409,6 +409,10 @@ console.log("WALLET DEBUG:", {
     }
 
 // Save the order in Firestore
+const orderExpiresAt = new Date(
+  Date.now() + 600 * 1000
+);
+
 await adminDb.collection("orders").add({
   uid: decodedToken.uid,
 
@@ -432,9 +436,7 @@ await adminDb.collection("orders").add({
 
   createdAt: new Date(),
 
-  expiresAt: new Date(
-    Date.now() + 600 * 1000
-  ),
+expiresAt: orderExpiresAt,
 });
 
 await adminDb.collection("platformTransactions").add({
@@ -485,6 +487,7 @@ await adminDb.collection("platformTransactions").add({
         cheapest.pool,
 
       expiresIn: 600,
+expiresAt: orderExpiresAt.getTime(),
 
       price:
         walletAmount,
