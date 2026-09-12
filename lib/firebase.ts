@@ -8,6 +8,10 @@ import {
   getFirestore
 } from "firebase/firestore";
 
+import {
+  getStorage
+} from "firebase/storage";
+
 const firebaseConfig = {
   apiKey: "AIzaSyD1KKnsUtNjYOx-yt8fyoqaisnwudTEZ20",
   authDomain: "otp-marketplace.firebaseapp.com",
@@ -25,3 +29,6 @@ export const auth =
 
 export const db =
   getFirestore(app);
+
+export const storage =
+  getStorage(app);

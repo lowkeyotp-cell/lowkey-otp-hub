@@ -25,7 +25,7 @@ const [adminUid, setAdminUid] = useState("");
       );
 
       const transactionsSnapshot = await getDocs(
-        collection(db, "transactions")
+        collection(db, "orders")
       );
 
       setTotalUsers(usersSnapshot.size);
@@ -190,6 +190,26 @@ const [adminUid, setAdminUid] = useState("");
 
               <p className="mt-5 text-xs font-bold uppercase tracking-widest text-yellow-400">
                 Manage Pricing →
+              </p>
+            </button>
+
+            {/* Marketplace */}
+            <button
+              onClick={() =>
+                openPage("/admin-marketplace")
+              }
+              className="group rounded-3xl border border-cyan-400/20 bg-cyan-400/[0.05] p-6 text-left transition hover:border-cyan-300/50 hover:bg-cyan-400/[0.09]"
+            >
+              <p className="text-2xl font-black text-cyan-300">
+                🛍️ Marketplace
+              </p>
+
+              <p className="mt-2 text-sm text-gray-400">
+                Manage marketplace products, inventory and customer orders.
+              </p>
+
+              <p className="mt-5 text-xs font-bold uppercase tracking-widest text-cyan-400">
+                Manage Marketplace →
               </p>
             </button>
 

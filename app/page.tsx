@@ -70,6 +70,10 @@ const handleProtectedNavigation = (path: string) => {
   Countries
 </Link>
 
+<Link href="/marketplace" className="hover:text-primary transition">
+  Marketplace
+</Link>
+
 <Link href="/services/usa" className="hover:text-primary transition">
   USA Numbers
 </Link>
@@ -100,6 +104,14 @@ const handleProtectedNavigation = (path: string) => {
 {menuOpen && (
   <div className="relative z-30 md:hidden px-5 py-4 bg-[#0b1728] border-b border-white/10">
     <div className="flex flex-col gap-2">
+
+      <Link
+        href="/marketplace"
+        onClick={() => setMenuOpen(false)}
+        className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-semibold w-full"
+      >
+        Marketplace
+      </Link>
 
       <button
         onClick={() => handleProtectedNavigation("/buy-number")}

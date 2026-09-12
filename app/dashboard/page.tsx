@@ -184,6 +184,25 @@ export default function DashboardPage() {
             >
               + Fund Wallet
             </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/marketplace")}
+              className="mt-3 w-full flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-left hover:bg-white/[0.08] active:scale-[0.98] transition"
+            >
+              <div>
+                <p className="font-bold text-white">
+                  Marketplace
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Buy digital products & view marketplace orders
+                </p>
+              </div>
+
+              <span className="text-xl text-blue-400">
+                →
+              </span>
+            </button>
           </div>
         </div>
 
