@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { doc, getDoc } from "firebase/firestore";
-import { signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 import { auth, db } from "@/lib/firebase";
 
@@ -17,17 +17,17 @@ export default function DashboardPage() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [logoClicks, setLogoClicks] = useState(0);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    const loadUserData = async () => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
       try {
-        const user = auth.currentUser;
-
-        if (!user) {
-          router.push("/login");
-          return;
-        }
-
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
 
@@ -61,9 +61,9 @@ export default function DashboardPage() {
       } finally {
         setLoading(false);
       }
-    };
+    });
 
-    loadUserData();
+    return () => unsubscribe();
   }, [router]);
 
   const handleLogoClick = () => {
@@ -95,8 +95,15 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/login");
+    try {
+      setLoggingOut(true);
+      await signOut(auth);
+      router.replace("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      setLoggingOut(false);
+      setShowLogoutConfirm(false);
+    }
   };
 
   if (loading) {
@@ -386,10 +393,13 @@ export default function DashboardPage() {
         {/* Logout */}
         <button
           type="button"
-          onClick={handleLogout}
-          className="mt-4 w-full rounded-3xl border border-red-500/10 bg-red-500/[0.05] py-4 text-sm font-bold text-red-400 active:scale-[0.98] transition"
+          onClick={() => setShowLogoutConfirm(true)}
+          className="mt-4 flex w-full items-center justify-center gap-3 rounded-3xl border border-red-500/10 bg-red-500/[0.05] py-4 text-sm font-bold text-red-400 transition hover:border-red-500/20 hover:bg-red-500/[0.08] active:scale-[0.98]"
         >
-          Log Out
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+            ↪
+          </span>
+          <span>Log Out</span>
         </button>
 
         <p className="text-center text-[10px] text-gray-700 mt-7 tracking-widest uppercase">
@@ -397,6 +407,52 @@ export default function DashboardPage() {
         </p>
 
       </div>
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-5 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-title"
+        >
+          <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0d121d] p-6 shadow-2xl">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-2xl text-red-400">
+              ↪
+            </div>
+
+            <h2
+              id="logout-title"
+              className="mt-5 text-center text-xl font-black text-white"
+            >
+              Sign out of LOWKEY?
+            </h2>
+
+            <p className="mt-2 text-center text-sm leading-6 text-gray-400">
+              You will need to sign in again to access your LOWKEY account.
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                disabled={loggingOut}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-bold text-gray-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="rounded-2xl bg-red-500 px-4 py-3 font-bold text-white transition hover:bg-red-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loggingOut ? "Signing out..." : "Sign Out"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

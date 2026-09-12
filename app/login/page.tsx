@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import {
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 
 import {
@@ -24,6 +25,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [resettingPassword, setResettingPassword] =
+    useState(false);
   const [showPassword, setShowPassword] =
     useState(false);
 
@@ -43,6 +46,74 @@ export default function LoginPage() {
       message,
       type,
     });
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      showPopup(
+        "Enter your email",
+        "Please enter your email address first so we can send you a password reset link.",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      setResettingPassword(true);
+
+      await sendPasswordResetEmail(
+        auth,
+        email.trim()
+      );
+
+      showPopup(
+        "Reset email sent",
+        "Check your email for a password reset link. If you don't see it, check your spam or junk folder.",
+        "success"
+      );
+    } catch (error: any) {
+      console.error(
+        "Password reset error:",
+        error
+      );
+
+      let message =
+        "We couldn't send the password reset email. Please try again.";
+
+      if (
+        error?.code ===
+        "auth/user-not-found"
+      ) {
+        message =
+          "No account was found with this email address.";
+      } else if (
+        error?.code ===
+        "auth/invalid-email"
+      ) {
+        message =
+          "Please enter a valid email address.";
+      } else if (
+        error?.code ===
+        "auth/too-many-requests"
+      ) {
+        message =
+          "Too many reset attempts. Please wait a moment and try again.";
+      } else if (
+        error?.code ===
+        "auth/network-request-failed"
+      ) {
+        message =
+          "Network connection failed. Please check your internet connection.";
+      }
+
+      showPopup(
+        "Password reset failed",
+        message,
+        "error"
+      );
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
   const handleLogin = async () => {
@@ -293,6 +364,19 @@ export default function LoginPage() {
               </button>
 
             </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={loading || resettingPassword}
+              className="text-sm font-semibold text-primary transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {resettingPassword
+                ? "Sending reset link..."
+                : "Forgot password?"}
+            </button>
           </div>
 
           <button
