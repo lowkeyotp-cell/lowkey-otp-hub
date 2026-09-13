@@ -14,7 +14,7 @@ import {
 
 const firebaseConfig = {
   apiKey: "AIzaSyD1KKnsUtNjYOx-yt8fyoqaisnwudTEZ20",
-  authDomain: "otp-marketplace.firebaseapp.com",
+  authDomain: "lowkey-otp-hub.vercel.app",
   projectId: "otp-marketplace",
   storageBucket: "otp-marketplace.firebasestorage.app",
   messagingSenderId: "930335542188",

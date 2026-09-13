@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+
+import { auth } from "@/lib/firebase";
 
 type Settings = {
   maintenanceMode: boolean;
@@ -33,27 +36,70 @@ export default function AdminSettingsPage() {
 
   const [popup, setPopup] = useState("");
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [adminUser, setAdminUser] =
+    useState<import("firebase/auth").User | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(
-        "lowkey-otp-admin-settings"
-      );
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (user) => {
+        if (!user) {
+          setPopup("Please sign in as an administrator.");
+          setLoading(false);
+          return;
+        }
 
-      if (stored) {
-        const parsed = JSON.parse(stored);
+        setAdminUser(user);
 
-        const merged = {
-          ...DEFAULT_SETTINGS,
-          ...parsed,
-        };
+        try {
+          const token = await user.getIdToken();
 
-        setSettings(merged);
-        setSavedSettings(merged);
+          const response = await fetch(
+            "/api/admin/settings",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              cache: "no-store",
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok || !data.success) {
+            throw new Error(
+              data.message ||
+                "Unable to load platform settings."
+            );
+          }
+
+          const loaded: Settings = {
+            ...DEFAULT_SETTINGS,
+            ...data.settings,
+          };
+
+          setSettings(loaded);
+          setSavedSettings(loaded);
+        } catch (error) {
+          console.error(
+            "Settings load error:",
+            error
+          );
+
+          setPopup(
+            error instanceof Error
+              ? error.message
+              : "Unable to load platform settings."
+          );
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error("Settings load error:", error);
-    }
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const updateSetting = (
@@ -67,64 +113,90 @@ export default function AdminSettingsPage() {
   };
 
   const saveSettings = async () => {
+    setPopup("");
+
+    if (settings.minDeposit < 0) {
+      setPopup("Minimum deposit cannot be negative.");
+      return;
+    }
+
+    if (settings.maxDeposit < settings.minDeposit) {
+      setPopup(
+        "Maximum deposit must be greater than or equal to minimum deposit."
+      );
+      return;
+    }
+
+    if (settings.minWithdrawal < 0) {
+      setPopup(
+        "Minimum withdrawal cannot be negative."
+      );
+      return;
+    }
+
+    if (
+      settings.maxWithdrawal <
+      settings.minWithdrawal
+    ) {
+      setPopup(
+        "Maximum withdrawal must be greater than or equal to minimum withdrawal."
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
-      if (settings.minDeposit < 0) {
-        setPopup("Minimum deposit cannot be negative.");
-        return;
-      }
-
-      if (settings.maxDeposit < settings.minDeposit) {
-        setPopup(
-          "Maximum deposit must be greater than minimum deposit."
+      if (!adminUser) {
+        throw new Error(
+          "Your admin session has expired. Please sign in again."
         );
-        return;
       }
 
-      if (settings.minWithdrawal < 0) {
-        setPopup("Minimum withdrawal cannot be negative.");
-        return;
-      }
+      const token = await adminUser.getIdToken(true);
 
-      if (
-        settings.maxWithdrawal <
-        settings.minWithdrawal
-      ) {
-        setPopup(
-          "Maximum withdrawal must be greater than minimum withdrawal."
+      const response = await fetch(
+        "/api/admin/settings",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(settings),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ||
+            "Failed to save platform settings."
         );
-        return;
       }
 
-     const response = await fetch(
-  "/api/admin/settings",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(settings),
-  }
-);
+      const saved: Settings = {
+        ...DEFAULT_SETTINGS,
+        ...data.settings,
+      };
 
-const data = await response.json();
-
-if (!response.ok || !data.success) {
-  throw new Error(
-    data.message ||
-      "Failed to save platform settings."
-  );
-}
-
-setSavedSettings(settings);
-
-setPopup(
-  "Platform settings saved successfully."
-);
+      setSettings(saved);
+      setSavedSettings(saved);
+      setPopup(
+        "Platform settings saved successfully."
+      );
     } catch (error) {
-      console.error("Settings save error:", error);
-      setPopup("Unable to save settings. Please try again.");
+      console.error(
+        "Settings save error:",
+        error
+      );
+
+      setPopup(
+        error instanceof Error
+          ? error.message
+          : "Unable to save settings. Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -132,11 +204,14 @@ setPopup(
 
   const resetChanges = () => {
     setSettings(savedSettings);
-    setPopup("Unsaved changes have been discarded.");
+    setPopup(
+      "Unsaved changes have been discarded."
+    );
   };
 
   const resetDefaults = () => {
     setSettings(DEFAULT_SETTINGS);
+
     setPopup(
       "Default settings loaded. Press Save Changes to apply them."
     );
@@ -145,6 +220,20 @@ setPopup(
   const hasChanges =
     JSON.stringify(settings) !==
     JSON.stringify(savedSettings);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/10 border-t-blue-500" />
+
+          <p className="mt-4 text-sm font-bold text-slate-400">
+            Loading platform settings...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -192,7 +281,6 @@ setPopup(
         </div>
 
         <div className="space-y-6">
-          {/* Platform controls */}
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:p-7">
             <div className="mb-6">
               <h2 className="text-xl font-black">
@@ -208,17 +296,20 @@ setPopup(
             <div className="space-y-3">
               <ToggleRow
                 title="Maintenance Mode"
-                description="Temporarily place the marketplace into maintenance mode."
+                description="Temporarily place the platform into maintenance mode."
                 enabled={settings.maintenanceMode}
                 danger
                 onChange={(value) =>
-                  updateSetting("maintenanceMode", value)
+                  updateSetting(
+                    "maintenanceMode",
+                    value
+                  )
                 }
               />
 
               <ToggleRow
                 title="Marketplace"
-                description="Allow users to access and purchase available services."
+                description="Allow users to access and purchase available marketplace products."
                 enabled={settings.marketplaceEnabled}
                 onChange={(value) =>
                   updateSetting(
@@ -230,7 +321,7 @@ setPopup(
 
               <ToggleRow
                 title="Deposits"
-                description="Allow users to add funds to their wallet."
+                description="Allow users to add funds to their LOWKEY wallet."
                 enabled={settings.depositsEnabled}
                 onChange={(value) =>
                   updateSetting(
@@ -254,7 +345,6 @@ setPopup(
             </div>
           </section>
 
-          {/* Deposit limits */}
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:p-7">
             <div className="mb-6">
               <h2 className="text-xl font-black">
@@ -272,7 +362,10 @@ setPopup(
                 label="Minimum Deposit"
                 value={settings.minDeposit}
                 onChange={(value) =>
-                  updateSetting("minDeposit", value)
+                  updateSetting(
+                    "minDeposit",
+                    value
+                  )
                 }
               />
 
@@ -280,13 +373,15 @@ setPopup(
                 label="Maximum Deposit"
                 value={settings.maxDeposit}
                 onChange={(value) =>
-                  updateSetting("maxDeposit", value)
+                  updateSetting(
+                    "maxDeposit",
+                    value
+                  )
                 }
               />
             </div>
           </section>
 
-          {/* Withdrawal limits */}
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:p-7">
             <div className="mb-6">
               <h2 className="text-xl font-black">
@@ -324,7 +419,6 @@ setPopup(
             </div>
           </section>
 
-          {/* Status */}
           <section className="rounded-3xl border border-blue-400/10 bg-blue-500/[0.05] p-5 md:p-7">
             <h2 className="font-black text-blue-300">
               🛡️ Current Configuration
@@ -354,7 +448,6 @@ setPopup(
             </div>
           </section>
 
-          {/* Actions */}
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
             {hasChanges && (
               <button
@@ -386,9 +479,8 @@ setPopup(
           </div>
 
           <p className="pb-5 text-center text-xs leading-5 text-slate-600">
-            Settings are currently stored locally in this
-            browser. We will connect them to Firebase when
-            we build the secure platform settings API.
+            Settings are securely stored in Firebase and
+            synchronized across admin sessions.
           </p>
         </div>
       </div>
@@ -441,7 +533,9 @@ function ToggleRow({
       >
         <span
           className={`block h-6 w-6 rounded-full bg-white shadow transition-transform ${
-            enabled ? "translate-x-6" : "translate-x-0"
+            enabled
+              ? "translate-x-6"
+              : "translate-x-0"
           }`}
         />
       </button>
