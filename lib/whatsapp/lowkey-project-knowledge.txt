@@ -1,0 +1,1981 @@
+LOWKEY CUSTOMER-FACING PROJECT KNOWLEDGE
+
+This file is generated from the LOWKEY customer-facing application code.
+Admin implementation files are intentionally excluded.
+
+=== app/all-countries/layout.tsx ===
+title: "OTP Numbers for All Supported Countries",
+"Browse supported countries and purchase temporary phone numbers for OTP verification through LOWKEY OTP.",
+"OTP numbers by country",
+"temporary phone numbers",
+"international OTP verification",
+"SMS verification numbers",
+"OTP marketplace",
+"LOWKEY OTP",
+title: "OTP Numbers for All Supported Countries | LOWKEY OTP",
+url: "https://lowkey-otp-hub.vercel.app/all-countries",
+siteName: "LOWKEY OTP",
+
+=== app/all-countries/page.tsx ===
+interface Country {
+ID?: string | number;
+id?: string | number;
+country?: string;
+const [countries, setCountries] = useState<Country[]>([]);
+item.name || item.country || ""
+← Back to LOWKEY OTP
+OTP Numbers by Country
+Browse countries currently supported by LOWKEY OTP
+for temporary phone numbers and OTP verification
+services.
+htmlFor="country-search"
+id="country-search"
+placeholder="Search by country name, code, or ID..."
+className="w-full border border-gray-300 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+Loading supported countries...
+Supported Countries
+item.country ||
+"Unknown Country";
+className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition"
+Ready to get a number?
+Choose a supported service and purchase a number
+through LOWKEY OTP.
+href="/buy-number"
+Buy Number
+
+=== app/api/ai/support/route.ts ===
+console.error("LOWKEY AI support error:", error);
+
+=== app/api/buy-number/route.ts ===
+message: "Please log in to purchase a number.",
+// Marketplace availability
+const marketplaceSettingsSnap = await adminDb
+const marketplaceSettings =
+marketplaceSettingsSnap.exists
+? marketplaceSettingsSnap.data() ?? {}
+marketplaceSettings.marketplaceEnabled === false
+"The marketplace is temporarily unavailable. Please check back later.",
+// 2. Read purchase request
+const country = body.country;
+const service = body.service;
+if (!country || !service) {
+"Please select a country and service.",
+process.env.SMSPOOL_API_KEY;
+"SMSPool API key is not configured."
+"The number service is temporarily unavailable.",
+// 3. Get LIVE SMSPool pricing
+//    Never trust price from browser
+"https://api.smspool.net/request/pricing",
+"Invalid SMSPool pricing response:",
+// 4. Find selected country/service
+String(item.country) ===
+String(country) &&
+Number(item.service) ===
+Number(service)
+console.log("COUNTRY:", country);
+console.log("SERVICE ID:", service);
+console.log("MATCHING PRICES:", matches);
+"This number is currently unavailable.",
+Number(a.price) -
+Number(b.price)
+const usdPrice =
+Number(cheapest.price);
+!Number.isFinite(usdPrice) ||
+usdPrice <= 0
+"Invalid number pricing.",
+const usdToNgn = Number(
+!Number.isFinite(usdToNgn) ||
+Number(settings?.customUsdToNgn ?? 0);
+Number(settings?.markupPercent ?? 0);
+Number.isFinite(customUsdToNgn) &&
+// 8. Calculate SERVER-SIDE price
+const costPrice =
+usdPrice * activeUsdToNgn;
+costPrice *
+const calculatedSellingPrice =
+costPrice + markupAmount;
+// Keep existing Signal special price
+const walletAmount =
+String(country) === "1" &&
+Number(service) === 829
+calculatedSellingPrice
+// 7. Atomically reserve wallet
+let previousBalance = 0;
+await adminDb.runTransaction(
+async (transaction) => {
+await transaction.get(userRef);
+const balance =
+Number(userData?.balance ?? 0);
+console.log("WALLET DEBUG:", {
+balance,
+walletAmount,
+country,
+service,
+!Number.isFinite(balance) ||
+balance < walletAmount
+"INSUFFICIENT_BALANCE"
+previousBalance = balance;
+transaction.update(userRef, {
+balance:
+balance - walletAmount,
+// 8. Purchase from SMSPool
+const purchaseForm = new FormData();
+purchaseForm.append(
+"country",
+String(country)
+"service",
+String(service)
+const purchaseResponse =
+"https://api.smspool.net/purchase/sms",
+body: purchaseForm,
+const purchaseData =
+await purchaseResponse.json();
+"SMSPool purchase response:",
+purchaseData
+// 9. Refund if SMSPool fails
+!purchaseData ||
+Number(purchaseData.success) !== 1
+const currentBalance =
+Number(
+userSnap.data()?.balance ?? 0
+currentBalance +
+"This number became unavailable. Your wallet has been refunded.",
+// Save the order in Firestore
+const orderExpiresAt = new Date(
+await adminDb.collection("orders").add({
+number: purchaseData.number,
+orderId: purchaseData.order_id,
+pool: purchaseData.pool,
+price: walletAmount,
+smsPoolUsdPrice: usdPrice,
+smsPoolCostNgn: costPrice,
+otp: null,
+expiresAt: orderExpiresAt,
+await adminDb.collection("platformTransactions").add({
+amount: walletAmount,
+country: String(country),
+service: String(service),
+pool: purchaseData.pool ?? null,
+number:
+purchaseData.number,
+orderId:
+purchaseData.order_id,
+country:
+purchaseData.country ??
+service:
+purchaseData.service ??
+purchaseData.pool ??
+expiresIn: 600,
+expiresAt: orderExpiresAt.getTime(),
+price:
+costPrice:
+costPrice,
+remainingBalance:
+previousBalance -
+"Buy number error:",
+"Your wallet balance is insufficient for this purchase.",
+"We couldn't complete your purchase right now. Please try again later.",
+
+=== app/api/cancel-order/route.ts ===
+const orderId = String(
+body.orderId ?? ""
+if (!orderId) {
+message: "Order ID is required.",
+* Find the Firestore order.
+const ordersSnap = await adminDb
+.collection("orders")
+.where("orderId", "==", orderId)
+if (ordersSnap.empty) {
+"This order could not be found.",
+const orderDoc = ordersSnap.docs[0];
+const orderRef = orderDoc.ref;
+const orderData = orderDoc.data();
+if (!orderData) {
+"Order data could not be loaded.",
+* Only waiting orders can be cancelled.
+if (orderData.status !== "waiting") {
+"This order has already been processed and cannot be cancelled.",
+* Verify that the logged-in user owns the order,
+const orderUid = String(
+orderData.uid ?? ""
+decodedToken.uid !== orderUid
+"You are not authorized to cancel this order.",
+const uid = orderUid;
+"This order has no associated user.",
+const refundAmount = Number(
+orderData.price ?? 0
+!Number.isFinite(refundAmount) ||
+refundAmount <= 0
+"Invalid refund amount.",
+* SMSPool API key.
+"SMSPOOL_API_KEY is not configured."
+"SMSPool service is temporarily unavailable.",
+* Cancel the actual SMSPool order first.
+const cancelForm = new FormData();
+cancelForm.append(
+"orderid",
+orderId
+const smsPoolResponse =
+"https://api.smspool.net/sms/cancel",
+body: cancelForm,
+const smsPoolData =
+await smsPoolResponse.json();
+"SMSPool cancel response:",
+smsPoolData
+* Never refund the user unless SMSPool
+* confirms the cancellation.
+!smsPoolData ||
+Number(smsPoolData.success) !== 1
+smsPoolData?.message ||
+"SMSPool could not cancel this number. The wallet was not refunded.",
+smsPool:
+smsPoolData ?? null,
+* SMSPool confirmed cancellation.
+* Now refund the user's wallet and mark
+* the Firestore order as cancelled atomically.
+const refundRef = adminDb
+.collection("platformTransactions")
+.doc(`refund_${orderId}`);
+let newBalance = 0;
+const orderSnap =
+await transaction.get(orderRef);
+const refundSnap =
+await transaction.get(refundRef);
+if (refundSnap.exists) {
+"REFUND_ALREADY_PROCESSED"
+if (!orderSnap.exists) {
+"ORDER_NOT_FOUND"
+orderSnap.data()?.status !==
+"ORDER_ALREADY_PROCESSED"
+const balance = Number(
+if (!Number.isFinite(balance)) {
+"INVALID_WALLET_BALANCE"
+newBalance =
+balance + refundAmount;
+transaction.update(
+balance: newBalance,
+orderRef,
+status: "cancelled",
+cancelledAt: new Date(),
+refundAmount,
+cancelledBy:
+transaction.set(
+refundRef,
+orderId,
+type: "refund",
+amount: refundAmount,
+smsPoolCancelled: true,
+"Order cancelled and wallet refunded successfully.",
+newBalance,
+"Cancel order error:",
+"This order has already been refunded.",
+"This order has already been processed.",
+message === "ORDER_NOT_FOUND"
+"The order's user account could not be found.",
+"Unable to cancel this order.",
+
+=== app/api/countries/route.ts ===
+"https://api.smspool.net/country/retrieve_all"
+
+=== app/api/cron/expire-orders/route.ts ===
+const expiredOrders: string[] = [];
+for (const orderDoc of ordersSnap.docs) {
+const data = orderDoc.data();
+const expiresAt = data.expiresAt?.toDate?.();
+if (!expiresAt) {
+if (expiresAt.getTime() <= now) {
+const orderId = String(data.orderId ?? "").trim();
+if (orderId) {
+expiredOrders.push(orderId);
+if (expiredOrders.length === 0) {
+message: "No expired orders found.",
+orderId: string;
+for (const orderId of expiredOrders) {
+`${baseUrl}/api/expire-order`,
+body: JSON.stringify({ orderId }),
+: "Failed to process order.",
+
+=== app/api/expire-order/route.ts ===
+* Find the order.
+message: "Order not found.",
+* User requests may only expire their own order.
+* Cron requests are allowed to process any expired order.
+String(orderData.uid ?? "").trim()
+* Only waiting orders can expire.
+expired: false,
+status: orderData.status,
+const expiresAt =
+orderData.expiresAt?.toDate?.();
+message: "Order expiration time is missing.",
+if (Date.now() < expiresAt.getTime()) {
+message: "Order has not expired yet.",
+message: "Order has no associated user.",
+message: "Invalid refund amount.",
+* Cancel the SMSPool order first.
+"SMSPool expiration cancel:",
+* Never refund unless SMSPool confirms.
+"SMSPool could not cancel the expired number.",
+* Refund atomically.
+const currentOrder =
+if (!currentOrder.exists) {
+currentOrder.data()?.status !==
+cancelledBy: "system-expiration",
+expired: true,
+"Expired order cancelled and wallet refunded.",
+"Expire order error:",
+"Unable to process expired order.",
+
+=== app/api/marketplace/orders/route.ts ===
+.collection("marketplaceOrders")
+const orders = snapshot.docs.map((doc) => {
+orderId: data.orderId ?? doc.id,
+productId: data.productId,
+productName: data.productName ?? "Marketplace Product",
+price: Number(data.price ?? 0),
+credential: data.credential ?? "",
+orders.sort((a, b) => {
+orders,
+console.error("Marketplace orders API error:", error);
+message: "Unable to load marketplace orders.",
+
+=== app/api/marketplace/products/route.ts ===
+.collection("marketplaceProducts")
+const products = (
+.collection("marketplaceInventory")
+.where("productId", "==", doc.id)
+products.sort((a, b) => a!.name.localeCompare(b!.name));
+products,
+console.error("Marketplace products error:", error);
+message: "Unable to load marketplace products.",
+
+=== app/api/marketplace/purchase/route.ts ===
+const productId = String(body?.productId ?? "").trim();
+if (!productId) {
+{ success: false, message: "Product ID is required." },
+const productRef = adminDb
+.doc(productId);
+let purchaseData: {
+productId: string;
+productName: string;
+price: number;
+credential: string;
+previousBalance: number;
+remainingBalance: number;
+orderId: "",
+productId: "",
+productName: "",
+price: 0,
+credential: "",
+previousBalance: 0,
+remainingBalance: 0,
+await adminDb.runTransaction(async (transaction) => {
+const productSnap = await transaction.get(productRef);
+if (!productSnap.exists) {
+throw new Error("PRODUCT_NOT_FOUND");
+const product = productSnap.data();
+if (product?.active !== true) {
+throw new Error("PRODUCT_INACTIVE");
+const price = Number(product?.price ?? 0);
+if (!Number.isFinite(price) || price <= 0) {
+throw new Error("INVALID_PRODUCT_PRICE");
+const userSnap = await transaction.get(userRef);
+const balance = Number(userData?.balance ?? 0);
+if (!Number.isFinite(balance) || balance < price) {
+throw new Error("INSUFFICIENT_BALANCE");
+.where("productId", "==", productId)
+const inventorySnap = await transaction.get(inventoryQuery);
+const orderId = `LM-${Date.now()}-${Math.random()
+const orderRef = adminDb
+const transactionRef = adminDb
+.collection("marketplaceTransactions")
+balance: balance - price,
+transaction.update(inventoryDoc.ref, {
+transaction.update(productRef, {
+transaction.set(orderRef, {
+productId,
+productName: product?.name ?? "",
+price,
+credential: inventory?.credential ?? "",
+transaction.set(transactionRef, {
+amount: price,
+purchaseData = {
+previousBalance: balance,
+remainingBalance: balance - price,
+if (!purchaseData.orderId) {
+throw new Error("PURCHASE_FAILED");
+message: "Purchase completed successfully.",
+orderId: purchaseData.orderId,
+productId: purchaseData.productId,
+productName: purchaseData.productName,
+price: purchaseData.price,
+credential: purchaseData.credential,
+remainingBalance: purchaseData.remainingBalance,
+console.error("Marketplace purchase error:", error);
+if (error?.message === "PRODUCT_NOT_FOUND") {
+{ success: false, message: "Product not found." },
+if (error?.message === "PRODUCT_INACTIVE") {
+{ success: false, message: "This product is no longer available." },
+{ success: false, message: "This product is currently out of stock." },
+if (error?.message === "INSUFFICIENT_BALANCE") {
+message: "Your wallet balance is insufficient for this purchase.",
+message: "We couldn't complete your purchase right now.",
+
+=== app/api/marketplace/transactions/route.ts ===
+const transactions = snapshot.docs.map((doc) => {
+orderId: data.orderId ?? "",
+productId: data.productId ?? "",
+amount: Number(data.amount ?? 0),
+transactions.sort((a, b) => {
+transactions,
+console.error("Marketplace transactions API error:", error);
+message: "Unable to load marketplace transactions.",
+
+=== app/api/order/route.ts ===
+const orderId =
+new URL(request.url).searchParams.get("orderId");
+const order = doc.data();
+if (String(order.uid) !== decodedToken.uid) {
+order.expiresAt?.toDate?.()?.getTime?.() ??
+order.createdAt?.toDate?.()?.getTime?.() ??
+order: {
+orderId: String(order.orderId),
+number: String(order.number || ""),
+service: String(order.service || ""),
+status: String(order.status || ""),
+expiresAt,
+console.error("Order lookup error:", error);
+message: "Unable to load order.",
+
+=== app/api/otp/route.ts ===
+const { orderId } = await req.json();
+// Check our order status before contacting SMSPool.
+const orderSnapshot = await adminDb
+.where("orderId", "==", String(orderId))
+if (!orderSnapshot.empty) {
+const orderData =
+orderSnapshot.docs[0].data();
+if (orderData.status === "cancelled") {
+message: "This order has been cancelled.",
+if (orderData.status === "completed") {
+message: "This order has already been completed.",
+code: orderData.otp || null,
+const apiKey = process.env.SMSPOOL_API_KEY;
+console.error("SMSPool API key is missing.");
+message: "OTP service is temporarily unavailable.",
+formData.append("orderid", String(orderId));
+"https://api.smspool.net/sms/check",
+const otpCode =
+data.sms ||
+if (otpCode) {
+otp: otpCode,
+console.log("SMSPool OTP response:", data);
+data.full_sms ||
+console.error("OTP check error:", error);
+"We couldn't check for a new OTP. Please try again.",
+
+=== app/api/paystack/initialize/route.ts ===
+const amount = Number(body.amount);
+if (!Number.isFinite(amount) || amount < 100) {
+message: "Minimum funding amount is ₦100",
+const paystackResponse = await fetch(
+"https://api.paystack.co/transaction/initialize",
+`Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+purpose: "wallet_funding",
+const data = await paystackResponse.json();
+console.log("Paystack initialize:", data);
+!paystackResponse.ok ||
+"Paystack initialization failed",
+reference: data.data.reference,
+"Paystack initialize error:",
+
+=== app/api/paystack/verify/route.ts ===
+import { applyReferralReward } from "@/lib/referral-reward";
+let reference = "";
+reference = String(body.reference ?? "").trim();
+message: "Payment reference missing.",
+if (!reference) {
+message: "Payment reference is required",
+`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+const paystackData = await paystackResponse.json();
+!paystackData?.status ||
+paystackData?.data?.status !== "success"
+const payment = paystackData.data;
+// Paystack amounts are returned in kobo.
+const paidAmount = Number(payment.amount) / 100;
+if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+.collection("walletTransactions")
+.doc(reference);
+const result = await adminDb.runTransaction(async (transaction) => {
+const transactionSnap = await transaction.get(transactionRef);
+if (transactionSnap.exists) {
+balance: Number(userSnap.data()?.balance || 0),
+referralRewarded: false,
+const currentBalance = Number(
+userSnap.data()?.balance || 0
+const newBalance = currentBalance + paidAmount;
+// Referral reward must be checked before any transaction writes.
+const referralRewarded = await applyReferralReward(
+transaction,
+reference,
+// Credit the user's wallet.
+referralRewarded,
+balance: result.balance,
+referralRewarded: result.referralRewarded,
+console.error("Paystack verification error:", error);
+
+=== app/api/paystack/webhook/route.ts ===
+const signature = req.headers.get("x-paystack-signature");
+const secretKey = process.env.PAYSTACK_SECRET_KEY;
+message: "Paystack secret key not configured",
+const reference = String(payment?.reference ?? "").trim();
+if (!reference || !uid) {
+message: "Payment reference or user ID missing",
+const amount = Number(payment.amount) / 100;
+if (!Number.isFinite(amount) || amount <= 0) {
+const paymentSnap = await transaction.get(paymentRef);
+const newBalance = currentBalance + amount;
+// Credit wallet.
+transaction.set(paymentRef, {
+source: "paystack_webhook",
+console.error("Paystack webhook error:", error);
+
+=== app/api/pricing/route.ts ===
+const { country, service } = await req.json();
+// 1. Get SMSPool live pricing
+process.env.SMSPOOL_API_KEY || ""
+// 2. Find selected country/service
+String(item.country) === String(country) &&
+Number(item.service) === Number(service)
+// 3. Pick cheapest available price
+Number(a.price) - Number(b.price)
+const usdPrice = Number(cheapest.price);
+if (!Number.isFinite(usdPrice)) {
+message: "Invalid SMSPool price",
+const liveUsdToNgn = Number(
+!Number.isFinite(liveUsdToNgn)
+// 7. Convert SMSPool cost to NGN
+usdPrice * usdToNgn;
+// 9. Signal special price
+const sellingPrice =
+: calculatedSellingPrice;
+sellingPrice - costPrice;
+price: sellingPrice,
+// Estimated SMSPool cost in NGN
+costPrice: costPrice,
+// Gross profit on this purchase
+// Original SMSPool USD price
+usdPrice: usdPrice,
+country: cheapest.country,
+service: cheapest.service,
+
+=== app/api/referrals/generate/route.ts ===
+function generateReferralCode(length = 8) {
+// If the user already has a referral code,
+if (userData?.referralCode) {
+referralCode: userData.referralCode,
+let referralCode = "";
+const candidate = generateReferralCode();
+.where("referralCode", "==", candidate)
+referralCode = candidate;
+if (!referralCode) {
+message: "Could not generate referral code",
+if (latestData?.referralCode) {
+referralCode: latestData.referralCode,
+referralCode,
+console.error("Referral code generation error:", error);
+message: "Server error generating referral code",
+
+=== app/api/referrals/list/route.ts ===
+// Get the user's referral code.
+const referralCode = String(
+userData?.referralCode ?? ""
+// Get referrals belonging to this user.
+.collection("referrals")
+.where("referrerId", "==", uid)
+const referrals = snapshot.docs.map((doc) => {
+referredUserId: String(
+data.referredUserId ?? ""
+referredEmail: String(
+data.referredEmail ?? ""
+referredName: String(
+data.referredName ?? ""
+referralCode: String(
+data.referralCode ?? ""
+reward: Number(
+data.reward ?? 0
+qualifyingDeposit: Number(
+data.qualifyingDeposit ?? 0
+rewardedAt: formatDate(
+data.rewardedAt
+// Newest referrals first.
+referrals.sort((a, b) => {
+const totalReferrals = referrals.length;
+const pendingReferrals = referrals.filter(
+(referral) =>
+referral.status === "pending"
+const creditedReferrals = referrals.filter(
+referral.status === "completed"
+const totalEarned = referrals.reduce(
+(total, referral) =>
+total + referral.reward,
+referrals,
+totalReferrals,
+pendingReferrals,
+creditedReferrals,
+"Referral list error:",
+message: "Unable to load referrals",
+
+=== app/api/referrals/register/route.ts ===
+const referralCode = String(body.referralCode ?? "")
+if (!idToken || !referralCode) {
+message: "Referral code and authentication are required.",
+const referredUserId = decodedToken.uid;
+.where("referralCode", "==", referralCode)
+message: "Invalid referral code.",
+const referrerDoc = usersSnapshot.docs[0];
+const referrerId = referrerDoc.id;
+if (referrerId === referredUserId) {
+message: "You cannot use your own referral code.",
+const referralId = `${referrerId}_${referredUserId}`;
+const referralRef = adminDb
+.doc(referralId);
+const existingReferral = await referralRef.get();
+if (existingReferral.exists) {
+message: "Referral already recorded.",
+.doc(referredUserId);
+if (userData?.referredBy) {
+message: "This account already has a referrer.",
+referredBy: referrerId,
+referredAt: FieldValue.serverTimestamp(),
+transaction.set(referralRef, {
+referrerId,
+referredUserId,
+referredEmail: decodedToken.email || "",
+referredName: userData?.username || "",
+// Referral details
+// Reward information
+reward: 0,
+qualifyingDeposit: 0,
+rewardedAt: null,
+message: "Referral recorded successfully.",
+console.error("Referral registration error:", error);
+message: "Unable to process referral.",
+
+=== app/api/services/route.ts ===
+{ error: "SMSPOOL_API_KEY is missing." },
+const country = searchParams.get("country");
+if (!country) {
+{ error: "Country is required." },
+// Get SMSPool services and pricing.
+const [servicesResponse, pricingResponse] =
+`https://api.smspool.net/service/retrieve_all?key=${apiKey}`,
+!servicesResponse.ok ||
+error: "SMSPool request failed.",
+const services =
+await servicesResponse.json();
+!Array.isArray(services) ||
+error: "Invalid SMSPool response.",
+!Number.isFinite(liveUsdToNgn) ||
+// Build country-specific service list.
+const filtered = services
+.map((service: any) => {
+Number(service.ID)
+Number(service.ID) === 829
+ID: service.ID,
+name: service.name,
+favourite: service.favourite ?? 0,
+// Customer-facing price.
+customerPrice: sellingPrice,
+"SMSPool services error:",
+error: "Failed to fetch services.",
+
+=== app/api/smspool/balance/route.ts ===
+error: "SMSPool API key is not configured",
+"https://api.smspool.net/request/balance",
+error: "SMSPool request failed",
+error: "SMSPool returned an invalid response",
+console.error("SMSPool balance error:", error);
+error: "Failed to connect to SMSPool",
+
+=== app/api/smspool/order/route.ts ===
+const { country, service, pool } = await req.json();
+formData.append("country", country);
+formData.append("service", service);
+formData.append("activation_type", "SMS");
+Authorization: `Bearer ${process.env.SMSPOOL_API_KEY}`,
+
+=== app/buy-number/layout.tsx ===
+title: "Buy OTP Verification Numbers",
+"Buy temporary phone numbers for OTP verification across supported countries and services through LOWKEY OTP.",
+"buy OTP numbers",
+"buy verification numbers",
+"OTP verification numbers",
+canonical: "/buy-number",
+title: "Buy OTP Verification Numbers | LOWKEY OTP",
+url: "https://lowkey-otp-hub.vercel.app/buy-number",
+export default function BuyNumberLayout({
+
+=== app/buy-number/page.tsx ===
+type Country = {
+type Service = {
+service?: string;
+pool?: string | number | null;
+customerPrice?: number;
+export default function BuyNumberPage() {
+const [services, setServices] = useState<Service[]>([]);
+const [selectedCountry, setSelectedCountry] =
+useState<Country | null>(null);
+const [countrySearch, setCountrySearch] = useState("");
+const [serviceSearch, setServiceSearch] = useState("");
+const [loadingServices, setLoadingServices] =
+const getFlag = (countryCode?: string) => {
+if (!countryCode || countryCode.length !== 2) {
+return countryCode
+const getServiceIcon = (serviceName?: string) => {
+const name = normalize(serviceName);
+const countryList = data.filter(
+(country: Country) =>
+country &&
+{getFlag(country.short_name)}
+{country.name}
+{country.region}
+countryList.sort((a, b) =>
+String(a.name || a.country || "").localeCompare(
+String(b.name || b.country || "")
+setCountries(countryList);
+const search = normalize(countrySearch);
+return countries.filter((country) => {
+country.name || country.country
+country.ID ?? country.id
+country.code || country.iso
+}, [countries, countrySearch]);
+* Load services for the selected country.
+const loadServices = async (country: Country) => {
+setLoadingServices(true);
+setSelectedCountry(country);
+setServices([]);
+setServiceSearch("");
+const countryId =
+country.ID ?? country.id;
+countryId === undefined ||
+countryId === null ||
+String(countryId).trim() === ""
+"This country does not have a valid SMSPool country ID."
+`/api/services?country=${encodeURIComponent(
+String(countryId)
+console.error("Services response:", data);
+"Services are temporarily unavailable. Please try again later."
+const serviceList = data.filter(
+(service: Service) =>
+service && service.name
+serviceList.sort((a, b) =>
+setServices(serviceList);
+console.error("Services error:", error);
+"We couldn't load the services right now. Please try again later."
+setLoadingServices(false);
+* Filter services.
+const filteredServices = useMemo(() => {
+const search = normalize(serviceSearch);
+if (!search) return services;
+return services.filter((service) => {
+const name = normalize(service.name);
+service.ID ?? service.id
+}, [services, serviceSearch]);
+* Select a service.
+const handleServiceClick = (
+service: Service
+if (!selectedCountry) return;
+selectedCountry.ID ??
+selectedCountry.id;
+const serviceId =
+service.ID ?? service.id;
+serviceId === undefined
+"This service is missing required information."
+"selectedService",
+country: String(countryId),
+serviceName:
+service.name ||
+service.service ||
+"Unknown Service",
+serviceId: serviceId,
+pool: service.pool ?? null,
+router.push("/buy-number/service");
+const countryName = (country: Country) =>
+country.name ||
+country.country ||
+const countryCode = (country: Country) =>
+country.code ||
+country.iso ||
+Lowkey OTP
+Buy OTP Number
+Choose a country and select the service you need.
+{!selectedCountry ? (
+Select Country
+value={countrySearch}
+setCountrySearch(event.target.value)
+placeholder="Search country..."
+className="w-full rounded-2xl border border-gray-200 bg-white px-5 py-4 pl-12 text-gray-900 outline-none shadow-sm focus:border-primary"
+Try another country name or code.
+(country, index) => {
+country.ID ??
+country.id ??
+loadServices(country)
+className="group rounded-3xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg active:scale-[0.97]"
+{countryName(country)}
+{countryCode(country) && (
+{countryCode(country)}
+setSelectedCountry(null);
+Selected Country
+{countryName(selectedCountry)}
+Select Service
+value={serviceSearch}
+setServiceSearch(event.target.value)
+placeholder="Search service..."
+{loadingServices ? (
+<div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-primary" />
+Loading available services...
+) : filteredServices.length === 0 ? (
+No services found
+Try another service name.
+{filteredServices.map(
+(service, index) => {
+service.ID ??
+service.id ??
+handleServiceClick(service)
+className="group rounded-3xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-lg active:scale-[0.97]"
+{getServiceIcon(
+service.service
+{service.name ||
+"Unknown Service"}
+{service.customerPrice !== undefined
+service.customerPrice
+: "Price unavailable"}
+
+=== app/buy-number/service/page.tsx ===
+type ServiceData = {
+country: string;
+serviceName: string;
+serviceId: string | number;
+pool?: string | number;
+costPrice?: number;
+margin?: number;
+export default function ServicePage() {
+const [serviceData, setServiceData] =
+useState<ServiceData | null>(null);
+const [walletBalance, setWalletBalance] =
+useState<number | null>(null);
+const [checkingOtp, setCheckingOtp] =
+const [order, setOrder] = useState<{
+number: string;
+orderId: string | number;
+expiresIn: number;
+const [otp, setOtp] =
+const [otpMessage, setOtpMessage] =
+const loadService = async () => {
+localStorage.getItem("selectedService");
+title: "Service Unavailable",
+"We couldn't load the selected service. Please return and select a service again.",
+const savedOrder =
+localStorage.getItem("activeOrder");
+if (savedOrder) {
+const active = JSON.parse(savedOrder);
+const activeServiceId =
+String(active.service?.serviceId ?? "");
+const selectedServiceId =
+String(selected.serviceId ?? "");
+const sameService =
+activeServiceId === selectedServiceId;
+if (!sameService) {
+localStorage.removeItem("activeOrder");
+} else if (active.orderId) {
+const orderResponse =
+`/api/order?orderId=${encodeURIComponent(
+String(active.orderId)
+await orderResponse.json();
+orderResponse.ok &&
+orderData.success &&
+orderData.order?.expiresAt
+const serverExpiresAt =
+Number(orderData.order.expiresAt);
+Date.now() < serverExpiresAt &&
+String(orderData.order.status) ===
+(serverExpiresAt -
+setOrder({
+orderData.order.number ||
+active.number ||
+orderData.order.orderId,
+expiresIn:
+"activeOrder",
+expiresAt:
+serverExpiresAt,
+setOtpMessage(
+setCheckingOtp(true);
+"activeOrder"
+"Active order restore error:",
+country: selected.country,
+service: selected.serviceId,
+const price =
+!price.success
+setServiceData({
+customerPrice: undefined,
+customerPrice:
+Number(price.price),
+Number(price.costPrice),
+Number(price.margin),
+pool: price.pool,
+"We couldn't load this service right now. Please try again later.",
+loadService();
+const loadWallet = async () => {
+setWalletBalance(
+Number(data.balance || 0)
+"Wallet error:",
+loadWallet();
+const refreshWallet =
+Number(data.balance || 0);
+setWalletBalance(balance);
+return balance;
+"Wallet refresh error:",
+const handleBuyNumber =
+title: "Login Required",
+"Please log in before purchasing an OTP number.",
+if (!serviceData) {
+"The service is still loading.",
+serviceData.customerPrice
+!Number.isFinite(price) ||
+price <= 0
+title: "Price Unavailable",
+"The current service price could not be loaded.",
+serviceData.pool ===
+serviceData.pool === null ||
+serviceData.pool === ""
+"This number pool is currently unavailable.",
+await refreshWallet();
+if (balance === null) {
+title: "Wallet Error",
+"We couldn't verify your wallet balance.",
+if (balance < price) {
+title: "Insufficient Balance",
+balance
+).toLocaleString()} available, but this number costs ₦${Math.ceil(
+price
+"/api/buy-number",
+serviceData.country,
+serviceData.serviceId,
+serviceData.pool,
+title: "Purchase Unavailable",
+number: String(result.number || ""),
+orderId: result.orderId,
+expiresIn: Number(result.expiresIn || 600),
+expiresIn: result.expiresIn,
+expiresAt: Number(result.expiresAt || 0),
+service: serviceData,
+setOtp(null);
+title: "Number Purchased",
+"Your number is ready. We're now waiting for the verification code.",
+checkOtp(
+result.orderId
+"Purchase error:",
+title: "Purchase Failed",
+"Something went wrong while processing your purchase.",
+const checkOtp =
+orderId: string | number
+if (checkingOtp) return;
+"/api/otp",
+data.status === "cancelled"
+setOrder(null);
+setCheckingOtp(false);
+"This order was cancelled and refunded."
+setOtp(
+"Waiting for SMS..."
+"OTP polling error:",
+"No verification code received yet. You can check the order again later."
+if (!order) {
+const expiresAt = Number(active.expiresAt || 0);
+(expiresAt - Date.now()) / 1000
+const orderId = active.orderId;
+"/api/expire-order",
+result.expired
+`Number expired. ₦${Number(
+result.refundAmount || 0
+).toLocaleString()} has been refunded to your wallet.`
+"Number expired. Refund is being processed."
+"Expiration refund error:",
+"Number expired. We couldn't process the refund right now."
+}, [order]);
+{order
+? "Your OTP"
+: "Buy Number"}
+<div className="px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
+Wallet
+{walletBalance !== null
+walletBalance
+{/* OTP result */}
+{order ? (
+<div className="rounded-[2rem] bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 p-7">
+Your number
+{order.number}
+{otp ? (
+<div className="rounded-2xl bg-black/30 border border-primary/20 py-6">
+{otp}
+<div className="w-8 h-8 mx-auto rounded-full border-2 border-primary border-t-transparent animate-spin" />
+Waiting for SMS
+{otpMessage}
+checkOtp(order.orderId)
+disabled={checkingOtp}
+className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 font-bold disabled:opacity-50"
+{checkingOtp
+: "Check for OTP"}
+"/orders"
+View My Orders
+/* Purchase card */
+<div className="rounded-[2rem] bg-white/[0.04] border border-white/10 backdrop-blur-xl p-6">
+<div className="rounded-3xl bg-gradient-to-br from-primary/20 to-primary/10 border border-white/10 p-5 mb-6">
+Country
+{serviceData?.country ||
+Service
+{serviceData?.serviceName ||
+Price
+{serviceData?.customerPrice
+<div className="rounded-2xl bg-black/20 border border-white/5 p-4 mb-6">
+Wallet balance
+onClick={handleBuyNumber}
+!serviceData
+rel="noopener noreferrer"
+WhatsApp Support
+className="w-full max-w-sm rounded-[2rem] bg-[#101c2d] border border-white/10 shadow-2xl p-7"
+
+=== app/components/FAQSchema.tsx ===
+name: "What is LOWKEY OTP?",
+text: "LOWKEY OTP is an online marketplace for supported temporary phone numbers and verification codes.",
+name: "How do I buy a number?",
+text: "Create an account, fund your wallet, choose a supported country and service, then purchase an available number.",
+name: "Which countries are supported?",
+text: "Supported countries and available services can change based on current availability. Visit the All Countries page to see available options.",
+name: "How long does an OTP order remain active?",
+text: "OTP orders have a limited active period. The countdown shown on the order page indicates the remaining time.",
+
+=== app/components/SiteSchema.tsx ===
+name: "LOWKEY OTP",
+url: "https://lowkey-otp-hub.vercel.app",
+"LOWKEY OTP is an online marketplace for supported temporary phone numbers and OTP verification services.",
+
+=== app/dashboard/page.tsx ===
+const [balance, setBalance] = useState(0);
+const [referralCode, setReferralCode] = useState("");
+const [referralCopied, setReferralCopied] = useState(false);
+router.replace("/login");
+setBalance(Number(data.balance || 0));
+if (data.referralCode) {
+setReferralCode(String(data.referralCode));
+const response = await fetch("/api/referrals/generate", {
+if (result.success && result.referralCode) {
+setReferralCode(result.referralCode);
+router.push("/admin-login");
+const copyReferralLink = async () => {
+if (!referralCode) return;
+`${window.location.origin}/register?ref=${referralCode}`;
+setReferralCopied(true);
+setReferralCopied(false);
+<header className="sticky top-0 z-20 border-b border-white/5 bg-[#070b14]/95 backdrop-blur-xl">
+OTP Marketplace
+onClick={() => router.push("/notifications")}
+className="w-11 h-11 rounded-2xl border border-white/10 bg-white/[0.04] flex items-center justify-center text-lg"
+{/* Wallet */}
+<div className="relative overflow-hidden rounded-[28px] border border-blue-500/20 bg-gradient-to-br from-[#101a33] to-[#0b1020] p-6 shadow-2xl shadow-blue-950/20">
+Available Balance
+<span className="rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 text-[11px] font-semibold text-green-400">
+● Wallet
+₦{balance.toLocaleString()}
+onClick={() => router.push("/fund-wallet")}
++ Fund Wallet
+onClick={() => router.push("/marketplace")}
+className="mt-3 w-full flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-left hover:bg-white/[0.08] active:scale-[0.98] transition"
+Marketplace
+Buy digital products & view marketplace orders
+className="rounded-3xl border border-blue-500/20 bg-blue-500/[0.08] p-5 active:scale-[0.98] transition"
+<p className="font-bold">Buy Number</p>
+Get an OTP number
+href="/orders"
+className="rounded-3xl border border-purple-500/20 bg-purple-500/[0.08] p-5 active:scale-[0.98] transition"
+<p className="font-bold">My Orders</p>
+Track your OTPs
+href="/transactions"
+className="rounded-3xl border border-green-500/20 bg-green-500/[0.08] p-5 active:scale-[0.98] transition"
+<p className="font-bold">Transactions</p>
+View wallet history
+href="/notifications"
+className="rounded-3xl border border-orange-500/20 bg-orange-500/[0.08] p-5 active:scale-[0.98] transition"
+<p className="font-bold">Notifications</p>
+{/* 7 Click OTP */}
+<div className="rounded-[28px] border border-white/10 bg-white/[0.035] p-6">
+<div className="w-12 h-12 rounded-2xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center text-xl">
+7 Click OTP
+Fast access to your OTP services.
+onClick={() => router.push("/buy-number")}
+className="mt-5 w-full rounded-2xl border border-white/10 bg-white/[0.05] py-3.5 text-sm font-bold active:scale-[0.98] transition"
+{/* Referral */}
+<div className="rounded-[28px] border border-yellow-500/20 bg-gradient-to-br from-yellow-500/[0.08] to-transparent p-6">
+Referral Program
+their first successful deposit of ₦500 or more.
+Your referral code
+<div className="flex-1 rounded-2xl border border-white/10 bg-black/20 px-4 py-3.5 text-center font-black tracking-[0.2em]">
+{referralCode || "Generating..."}
+onClick={copyReferralLink}
+{referralCopied ? "✓" : "Copy"}
+Deposits below ₦500 do not qualify.
+onClick={() => router.push("/referrals")}
+className="mt-4 w-full rounded-2xl border border-yellow-500/20 bg-yellow-500/10 py-3.5 text-sm font-bold text-yellow-400 active:scale-[0.98] transition"
+Open Referral Center →
+{/* Support */}
+className="mt-7 flex items-center justify-between rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.06] p-5 active:scale-[0.98] transition"
+Contact Support
+className="mt-4 flex w-full items-center justify-center gap-3 rounded-3xl border border-red-500/10 bg-red-500/[0.05] py-4 text-sm font-bold text-red-400 transition hover:border-red-500/20 hover:bg-red-500/[0.08] active:scale-[0.98]"
+LOWKEY OTP • Digital Service Hub
+<div className="w-full max-w-sm rounded-3xl border border-white/10 bg-[#0d121d] p-6 shadow-2xl">
+className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-bold text-gray-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+Cancel
+
+=== app/fund-wallet/page.tsx ===
+export default function FundWalletPage() {
+const handleFundWallet = async () => {
+"Login required",
+"Please sign in to your Lowkey OTP account before funding your wallet.",
+setTimeout(() => router.push("/login"), 1200);
+const numericAmount = Number(amount);
+!Number.isFinite(numericAmount) ||
+"/api/paystack/initialize",
+const PaystackPop =
+(await import("@paystack/inline-js")).default;
+const popup = new PaystackPop();
+popup.resumeTransaction(
+onSuccess: async (transaction: {
+reference: string;
+const reference =
+transaction.reference;
+"Payment completed but no transaction reference was returned.",
+"Paystack successful reference:",
+reference
+"/api/paystack/verify",
+"Wallet verification:",
+"Your payment was received, but wallet verification is still pending.",
+"Wallet funded",
+`Payment successful. ₦${Number(
+)} has been added to your wallet.`,
+"Your payment was successful, but wallet verification is still pending.",
+onCancel: () => {
+"Payment cancelled",
+"No money was added to your wallet.",
+"Paystack error:",
+"Paystack could not complete the transaction.",
+Fund Wallet
+Add funds securely to your Lowkey OTP wallet.
+type="number"
+className="mb-6 w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
+onClick={handleFundWallet}
+: "Fund Wallet"}
+
+=== app/layout.tsx ===
+default: "LOWKEY OTP | Fast OTP Verification Numbers",
+template: "%s | LOWKEY OTP",
+"LOWKEY OTP is an online OTP marketplace for temporary phone numbers and verification codes across supported countries and services.",
+"OTP verification",
+"verification numbers",
+"SMS verification",
+"online OTP",
+authors: [{ name: "LOWKEY OTP" }],
+creator: "LOWKEY OTP",
+metadataBase: new URL("https://lowkey-otp-hub.vercel.app"),
+title: "LOWKEY OTP | Fast OTP Verification Numbers",
+"Get temporary phone numbers and receive verification codes across supported countries and services.",
+"Get temporary phone numbers and verification codes across supported countries and services.",
+
+=== app/login/page.tsx ===
+signInWithEmailAndPassword,
+sendPasswordResetEmail,
+export default function LoginPage() {
+const [password, setPassword] = useState("");
+const [resettingPassword, setResettingPassword] =
+const [showPassword, setShowPassword] =
+const handleForgotPassword = async () => {
+"Please enter your email address first so we can send you a password reset link.",
+setResettingPassword(true);
+await sendPasswordResetEmail(
+"Check your email for a password reset link. If you don't see it, check your spam or junk folder.",
+"Password reset error:",
+"We couldn't send the password reset email. Please try again.";
+"Password reset failed",
+setResettingPassword(false);
+const handleLogin = async () => {
+if (!email.trim() || !password) {
+"Please enter your email address and password.",
+const userCredential =
+await signInWithEmailAndPassword(
+password
+const user = userCredential.user;
+"Your account has been banned. Please contact support if you believe this was a mistake.",
+"Login successful. Redirecting you to your dashboard...",
+console.error("Login error:", error);
+"auth/invalid-credential"
+"The email or password you entered is incorrect.";
+"auth/wrong-password"
+"The password you entered is incorrect.";
+"Too many login attempts. Please wait a moment and try again.";
+"Login unsuccessful",
+Sign in to your Lowkey OTP account
+className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
+htmlFor="password"
+Password
+id="password"
+showPassword
+: "password"
+placeholder="Enter your password"
+value={password}
+setPassword(e.target.value)
+autoComplete="current-password"
+className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 pr-20 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
+setShowPassword(
+!showPassword
+{showPassword
+onClick={handleForgotPassword}
+disabled={loading || resettingPassword}
+{resettingPassword
+: "Forgot password?"}
+onClick={handleLogin}
+Secure login powered by Lowkey OTP
+
+=== app/marketplace/orders/page.tsx ===
+type Order = {
+export default function MarketplaceOrdersPage() {
+const [orders, setOrders] = useState<Order[]>([]);
+setOrders([]);
+const response = await fetch("/api/marketplace/orders", {
+data.message || "Unable to load marketplace orders."
+setOrders(data.orders || []);
+console.error("Marketplace orders error:", err);
+err?.message || "Unable to load marketplace orders."
+<h1 className="text-3xl font-black">My Orders</h1>
+Your marketplace purchases and credentials.
+href="/marketplace"
+<div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-gray-400">
+Loading orders...
+<div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center text-red-300">
+) : orders.length === 0 ? (
+<div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
+<p className="font-bold">No marketplace orders yet.</p>
+Your purchased products will appear here.
+{orders.map((order) => (
+key={order.id}
+className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+{order.productName}
+Order: {order.orderId}
+{order.status}
+<p className="text-xs text-gray-500">Price</p>
+₦{Number(order.price).toLocaleString()}
+<p className="text-xs text-gray-500">Credential</p>
+<div className="mt-2 rounded-xl border border-white/10 bg-black/30 p-3">
+{order.credential || "Unavailable"}
+{order.credential && (
+await navigator.clipboard.writeText(order.credential);
+alert("Full credential copied!");
+alert("Unable to copy credential.");
+Copy Full Credential
+<p className="text-xs text-gray-500">Purchased</p>
+{order.createdAt
+? new Date(order.createdAt).toLocaleString()
+
+=== app/marketplace/page.tsx ===
+type Product = {
+stock?: number;
+"Text / SMS",
+export default function MarketplacePage() {
+const [products, setProducts] = useState<Product[]>([]);
+const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
+const [successPurchase, setSuccessPurchase] = useState<{
+const loadProducts = async () => {
+"/api/marketplace/products",
+setProducts(data.products || []);
+"Marketplace products error:",
+loadProducts();
+setBalance(Number(userSnap.data().balance || 0));
+console.error("Marketplace wallet error:", error);
+const filteredProducts = useMemo(() => {
+return products.filter((product) => {
+product.category === category;
+product.name.toLowerCase().includes(query) ||
+product.category.toLowerCase().includes(query) ||
+product.description.toLowerCase().includes(query);
+}, [products, search, category]);
+<header className="border-b border-white/10 bg-[#090b10]/95 backdrop-blur">
+OTP
+className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/15 sm:px-4 sm:text-sm"
+href="/marketplace/orders"
+className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-200 transition hover:bg-white/10 sm:px-4 sm:text-sm"
+View Orders
+href="/marketplace/transactions"
+Transactions
+href="/profile"
+Profile
+<section className="border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
+<span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+LOWKEY Marketplace
+Discover digital products & services
+Browse products, choose what you need,
+and purchase securely using your LOWKEY
+wallet.
+<div className="flex items-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 shadow-2xl">
+placeholder="Search marketplace..."
+Use your LOWKEY wallet balance to purchase marketplace products.
+Browse by service type
+className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+? "border-primary/40 bg-primary/10 text-primary"
+: "border-white/10 bg-white/[0.03] text-gray-400 hover:bg-white/[0.07] hover:text-white"
+{/* Products */}
+Featured Products
+{products.length}{" "}
+{products.length === 1
+? "product"
+: "products"}{" "}
+<div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+<div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-primary" />
+Loading products...
+) : filteredProducts.length === 0 ? (
+<div className="mt-6 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+<div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-2xl">
+No products found
+{products.length === 0
+? "Products will appear here once they are added from the admin dashboard."
+{filteredProducts.map((product) => (
+key={product.id}
+className="group rounded-3xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-primary/30 hover:bg-white/[0.05]"
+{product.imageUrl && (
+<div className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+src={product.imageUrl}
+alt={product.name}
+<span className="inline-flex rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+{product.category}
+{product.name}
+{Number(
+product.price
+{product.description ||
+"Digital product available through LOWKEY Marketplace."}
+setCheckoutProduct(product);
+Purchase
+{checkoutProduct && (
+<div className="w-full max-w-md overflow-hidden rounded-[30px] border border-white/10 bg-[#0c1018] shadow-2xl">
+<div className="border-b border-white/10 px-6 py-5">
+Confirm purchase
+onClick={() => setCheckoutProduct(null)}
+className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-gray-400 transition hover:bg-white/10 hover:text-white"
+<div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+{checkoutProduct.category}
+{checkoutProduct.name}
+{checkoutProduct.description ||
+<div className="mt-5 flex items-center justify-between border-t border-white/10 pt-5">
+₦{Number(checkoutProduct.price).toLocaleString()}
+<div className="mt-4 rounded-2xl border border-blue-500/20 bg-blue-500/[0.06] p-4">
+LOWKEY Wallet
+className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-gray-300 transition hover:bg-white/10"
+setPurchasingId(checkoutProduct.id);
+setCheckoutProduct(null);
+router.push("/login");
+"/api/marketplace/purchase",
+productId: checkoutProduct.id,
+data.message || "Purchase failed."
+setBalance(Number(data.remainingBalance || 0));
+setProducts((currentProducts) =>
+currentProducts
+.map((product) =>
+product.id === checkoutProduct.id
+...product,
+Number(product.stock || 1) - 1,
+: product
+(product) =>
+product.id !== checkoutProduct.id ||
+Number(product.stock || 0) > 0
+setSuccessPurchase({
+orderId: data.orderId,
+productName: data.productName,
+price: Number(data.price || 0),
+credential: data.credential || "",
+remainingBalance: Number(
+data.remainingBalance || 0
+"Marketplace purchase error:",
+: "Purchase failed."
+: "Confirm Purchase"}
+{successPurchase && (
+<div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[32px] border border-green-400/20 bg-[#0a0f14] shadow-2xl shadow-green-950/30">
+<div className="flex h-20 w-20 items-center justify-center rounded-full border border-green-400/30 bg-green-400/10 shadow-lg shadow-green-500/10">
+Purchase Successful
+Your product has been purchased successfully and is now available in your account.
+<div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+Product
+{successPurchase.productName}
+₦{successPurchase.price.toLocaleString()}
+<div className="mt-5 border-t border-white/10 pt-4">
+Order ID
+{successPurchase.orderId}
+<div className="mt-4 rounded-2xl border border-primary/20 bg-primary/[0.05] p-5">
+Your Credential
+successPurchase.credential
+setMessage("Credential copied successfully.");
+setMessage("Unable to copy credential.");
+className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-bold text-primary transition hover:bg-primary/20"
+<div className="mt-4 max-h-32 overflow-auto rounded-xl border border-white/10 bg-black/30 p-4">
+{successPurchase.credential}
+<div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4">
+Remaining balance
+₦{successPurchase.remainingBalance.toLocaleString()}
+setSuccessPurchase(null);
+router.push("/marketplace/orders");
+View Order
+onClick={() => setSuccessPurchase(null)}
+className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-gray-300 transition hover:bg-white/10 hover:text-white"
+<div className="mt-6 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+
+=== app/marketplace/transactions/page.tsx ===
+type Transaction = {
+amount: number;
+export default function MarketplaceTransactionsPage() {
+const [transactions, setTransactions] = useState<Transaction[]>([]);
+setTransactions([]);
+"/api/marketplace/transactions",
+"Unable to load marketplace transactions."
+setTransactions(data.transactions || []);
+"Marketplace transactions error:",
+Marketplace Transactions
+Your marketplace purchase history.
+Loading transactions...
+) : transactions.length === 0 ? (
+No marketplace transactions yet.
+Your marketplace purchases will appear here.
+{transactions.map((transaction) => (
+key={transaction.id}
+{transaction.type}
+Marketplace Purchase
+Order: {transaction.orderId || "N/A"}
+{transaction.status}
+transaction.amount
+{transaction.createdAt
+transaction.createdAt
+
+=== app/notifications/page.tsx ===
+orderBy,
+export default function NotificationsPage() {
+const [notifications, setNotifications] =
+const loadNotifications = async () => {
+collection(db, "notifications"),
+orderBy("createdAt", "desc")
+"Welcome to Lowkey OTP Marketplace 🎉",
+setNotifications(data);
+loadNotifications();
+Notifications
+{notifications.map((item) => (
+
+=== app/orders/page.tsx ===
+export default function OrdersPage() {
+const [orders, setOrders] =
+const [cancelling, setCancelling] =
+const loadOrders =
+collection(db, "orders"),
+data.map(async (order: any) => {
+order.status === "waiting" &&
+order.orderId
+orderId: order.orderId,
+...order,
+otp: result.code,
+"OTP refresh error:",
+return order;
+setOrders(updatedData);
+loadOrders();
+const cancelOrder = async (
+if (!orderId) return;
+"Please log in again before cancelling this number.",
+"Are you sure you want to cancel this number? Your wallet will be refunded."
+setCancelling(String(orderId));
+"/api/cancel-order",
+"Cancellation Failed",
+"Unable to cancel this number.",
+setOrders((current) =>
+current.map((order) =>
+String(order.orderId) ===
+String(orderId)
+"cancelled",
+refundAmount:
+result.refundAmount ??
+order.price,
+: order
+"Number Cancelled",
+`Your number was cancelled successfully and ₦${Number(
+result.refundAmount ?? 0
+).toLocaleString()} has been refunded to your wallet.`,
+"Cancel request error:",
+"We couldn't complete the cancellation. Please try again.",
+setCancelling(null);
+<div className="w-full max-w-sm rounded-3xl bg-[#111827] border border-cyan-400/20 p-6 shadow-2xl">
+OTP Orders
+<p>Loading orders...</p>
+<p>No OTP orders yet</p>
+className="rounded-[2rem] bg-[#111827] border border-cyan-400/20 p-6 shadow-xl"
+{order.service || "Unknown Service"}
+{order.country || "Unknown Country"}
+order.status === "completed"
+: order.status === "cancelled"
+{order.status === "completed"
+? "Cancelled"
+Phone Number
+{order.number || "-----"}
+OTP Code
+{order.otp || "Waiting..."}
+{order.status === "waiting" && (
+onClick={() => cancelOrder(order.orderId)}
+Cancel Number
+
+=== app/page.tsx ===
+window.location.href = "/admin-login";
+<nav className="relative z-20 flex items-center justify-between px-5 sm:px-8 py-5 border-b border-white/10 bg-[#07111f]/80 backdrop-blur-xl">
+Lowkey <span className="text-primary">OTP</span>
+<Link href="/marketplace" className="hover:text-primary transition">
+<Link href="/services/usa" className="hover:text-primary transition">
+USA Numbers
+<Link href="/buy-number" className="hover:text-primary transition">
+<Link href="/fund-wallet" className="hover:text-primary transition">
+<Link href="/notifications" className="hover:text-primary transition">
+className="md:hidden text-2xl w-11 h-11 rounded-2xl bg-white/5 border border-white/10"
+<div className="relative z-30 md:hidden px-5 py-4 bg-[#0b1728] border-b border-white/10">
+className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-semibold w-full"
+onClick={() => handleProtectedNavigation("/buy-number")}
+onClick={() => handleProtectedNavigation("/fund-wallet")}
+onClick={() => handleProtectedNavigation("/notifications")}
+<div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-sm mb-7">
+Get Your OTP
+Number Instantly.
+Buy temporary numbers for supported services,
+from one simple wallet.
+<Link href="/login">
+<button className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 font-bold hover:bg-white/10 active:scale-95 transition">
+Login
+<span>✓ Secure Wallet</span>
+<span>✓ Fast OTP</span>
+<div className="rounded-3xl bg-white/[0.04] border border-white/10 p-7 backdrop-blur-xl">
+Simple Wallet
+Fund your wallet securely and use your
+balance whenever you need an OTP number.
+Choose your country and service,
+purchase a number and receive the OTP.
+A clean marketplace experience for
+<section className="relative z-10 px-5 sm:px-8 py-20 border-y border-white/10 bg-white/[0.02]">
+<div className="bg-[#0b1728] border border-white/10 rounded-3xl p-7">
+your marketplace dashboard.
+Fund your wallet
+Add funds securely and keep your balance
+ready for purchases.
+Buy your number
+Select a country and supported service,
+<div className="max-w-4xl mx-auto rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/10 p-8 sm:p-12 text-center">
+Create your account and start using Lowkey OTP.
+Explore LOWKEY OTP
+Browse supported countries and available OTP services.
+className="rounded-2xl bg-white/[0.04] border border-white/10 p-6 hover:bg-white/[0.08] transition"
+Explore supported countries and OTP options.
+href="/services/usa"
+USA OTP Numbers
+View available USA verification services.
+Common questions about LOWKEY OTP.
+<details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
+What is LOWKEY OTP?
+LOWKEY OTP is an online marketplace for supported temporary
+phone numbers and verification codes.
+How do I buy a number?
+Create an account, fund your wallet, choose a supported
+country and service, then purchase an available number.
+Which countries are supported?
+Supported countries and available services can change based
+How long does an OTP order remain active?
+OTP orders have a limited active period. The countdown shown
+on the order page indicates the remaining time.
+className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-bold hover:bg-green-500/20 transition"
+<footer className="relative z-10 border-t border-white/10 px-5 py-8 text-center">
+Secure OTP marketplace
+
+=== app/profile/page.tsx ===
+export default function ProfilePage() {
+console.error("Profile loading error:", error);
+<header className="border-b border-white/10 bg-[#090b10]/95 backdrop-blur-xl">
+LOWKEY <span className="text-primary">OTP</span>
+className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-gray-300 transition hover:bg-white/10 hover:text-white"
+<div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-gradient-to-br from-[#111827] via-[#0c1220] to-[#090b10] p-6 shadow-2xl sm:p-8">
+<div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-2xl font-black text-primary">
+<div className="mt-8 rounded-2xl border border-blue-500/20 bg-blue-500/[0.06] p-5">
+Wallet Balance
+Available for LOWKEY purchases.
+className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-primary/30 hover:bg-white/[0.06]"
+Browse the LOWKEY Marketplace
+<p className="text-lg font-bold">My Orders</p>
+View your purchased products
+<p className="text-lg font-bold">Transactions</p>
+View your marketplace transactions
+<div className="rounded-2xl border border-primary/20 bg-primary/[0.05] p-5">
+<p className="text-lg font-bold">Profile</p>
+
+=== app/referrals/page.tsx ===
+Wallet,
+type Referral = {
+referredUserId: string;
+referredEmail: string;
+referredName: string;
+reward: number;
+qualifyingDeposit: number;
+rewardedAt: string | null;
+export default function ReferralsPage() {
+const [referrals, setReferrals] = useState<Referral[]>([]);
+const [totalReferrals, setTotalReferrals] = useState(0);
+const [pendingReferrals, setPendingReferrals] = useState(0);
+const [creditedReferrals, setCreditedReferrals] = useState(0);
+const loadReferrals = async () => {
+const response = await fetch("/api/referrals/list", {
+result.message || "Unable to load referrals"
+setReferralCode(result.referralCode || "");
+setReferrals(result.referrals || []);
+setTotalReferrals(
+result.totals?.totalReferrals || 0
+setPendingReferrals(
+result.totals?.pendingReferrals || 0
+setCreditedReferrals(
+result.totals?.creditedReferrals || 0
+console.error("Referral Center error:", error);
+loadReferrals();
+const referralLink =
+typeof window !== "undefined" && referralCode
+? `${window.location.origin}/register?ref=${referralCode}`
+"bg-green-500/10 text-green-400 border-green-500/20",
+"bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition hover:bg-white/10"
+Referral Center
+Invite friends and earn rewards
+{/* Reward Notice */}
+<div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+🎁 Referral Reward
+Share your referral code and earn{" "}
+when a referred user makes their first
+successful deposit of{" "}
+Deposits below ₦500 do not qualify for a
+referral reward.
+{/* Referral Code */}
+<div className="flex flex-1 items-center rounded-xl border border-white/10 bg-black/30 px-4">
+{loading ? "LOADING..." : referralCode || "—"}
+copyText(referralCode, "code")
+disabled={!referralCode}
+{referralLink || "Referral link loading..."}
+copyText(referralLink, "link")
+disabled={!referralLink}
+? "Referral link copied!"
+: "Copy referral link"}
+<div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+{totalReferrals}
+Total referrals
+{pendingReferrals}
+{creditedReferrals}
+<Wallet
+{/* Referral List */}
+<div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
+<div className="border-b border-white/10 p-5">
+Your Referrals
+Track your invited users and rewards.
+Loading referrals...
+) : referrals.length === 0 ? (
+No referrals yet
+Share your referral link to get started.
+<thead className="border-b border-white/10 bg-white/[0.02]">
+Deposit
+Reward
+{referrals.map((referral) => {
+getStatus(referral.status);
+key={referral.id}
+className="border-b border-white/5 last:border-0"
+{referral.referredName ||
+{referral.referredUserId}
+{referral.referredEmail ||
+className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${status.className}`}
+{referral.qualifyingDeposit > 0
+? `₦${referral.qualifyingDeposit.toLocaleString()}`
+{referral.reward > 0
+? `₦${referral.reward.toLocaleString()}`
+referral.createdAt
+
+=== app/register/page.tsx ===
+createUserWithEmailAndPassword,
+const [showPassword, setShowPassword] = useState(false);
+setReferralCode(
+if (!username || !email || !password) {
+"Please fill in your username, email, and password.",
+await createUserWithEmailAndPassword(
+balance: 0,
+const referralResponse = await fetch(
+"/api/referrals/generate",
+const referralResult =
+await referralResponse.json();
+if (!referralResponse.ok) {
+"Referral code generation:",
+referralResult.message
+"Referral code generation error:",
+* Register referral after the user account
+if (referralCode) {
+const referralResponse =
+"/api/referrals/register",
+"Referral registration:",
+} catch (referralError) {
+"Referral registration error:",
+referralError
+"auth/weak-password"
+"Your password is too weak. Please choose a stronger password.";
+Create your Lowkey OTP account.
+className="w-full border border-gray-200 bg-gray-50 p-4 rounded-2xl mb-5 text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
+Referral Code
+placeholder="Enter referral code (optional)"
+value={referralCode}
+placeholder="Create password"
+className="w-full border border-gray-200 bg-gray-50 p-4 pr-20 rounded-2xl text-gray-900 outline-none transition focus:border-primary focus:bg-white disabled:opacity-60"
+
+=== app/robots.ts ===
+"/admin-login/",
+"/admin-orders/",
+"/admin-smspool/",
+sitemap: "https://lowkey-otp-hub.vercel.app/sitemap.xml",
+
+=== app/services/usa/layout.tsx ===
+title: "USA OTP Verification Numbers",
+"Get temporary USA phone numbers for supported OTP verification services. Choose a service and purchase a USA number through LOWKEY OTP.",
+"USA OTP numbers",
+"USA verification numbers",
+"USA temporary phone numbers",
+"USA SMS verification",
+"USA OTP verification",
+"LOWKEY OTP USA",
+canonical: "/services/usa",
+title: "USA OTP Verification Numbers | LOWKEY OTP",
+"Get temporary USA phone numbers for supported OTP verification services through LOWKEY OTP.",
+url: "https://lowkey-otp-hub.vercel.app/services/usa",
+
+=== app/services/usa/page.tsx ===
+ID: string | number;
+livePrice?: string | number;
+export default function USAServicesPage() {
+const loadServices = async () => {
+const response = await fetch("/api/services", {
+console.error("Services error:", data);
+setServices(data);
+console.error("Failed to load services:", error);
+loadServices();
+const interval = setInterval(loadServices, 30000);
+const handlePurchase = (service: Service) => {
+`/buy-number/service?country=USA&service=${encodeURIComponent(
+String(service.ID)
+USA OTP Services
+Get temporary USA phone numbers for supported OTP and SMS
+verification services through LOWKEY OTP. Choose an available
+service below to view the current price and purchase a number.
+Loading live services...
+) : services.length === 0 ? (
+<p>No USA services available.</p>
+{services.map((service) => (
+key={service.ID}
+{service.name || service.service || "Unknown Service"}
+Live SMSPool Price
+${service.livePrice ?? "0"}
+onClick={() => handlePurchase(service)}
+Purchase Number
+
+=== app/signup/page.tsx ===
+userCredential.user
+Join OTP Marketplace today
+className="border border-gray-300 p-4 rounded-xl"
+type="password"
+placeholder="Password"
+
+=== app/sitemap.ts ===
+const baseUrl = "https://lowkey-otp-hub.vercel.app";
+url: `${baseUrl}/services/usa`,
+
+=== app/transactions/page.tsx ===
+export default function TransactionsPage() {
+const [transactions, setTransactions] =
+collection(db, "walletTransactions"),
+setTransactions(data);
+"Transaction history error:",
+Transaction History
+No transactions yet.
+{transactions.map(
+(transaction) => (
+Wallet Funding
+transaction.amount || 0
+{transaction.status ||
+Reference:{" "}
+{transaction.reference ||
+transaction.id}
+{transaction.channel ||
+"Paystack"}
+? transaction.createdAt
+
+=== lib/ai/lowkey-ai.ts ===
+OFFICIAL LOWKEY SUPPORT EMAIL:
+lowkeyotpmarketplace@gmail.com`;
+return `You are the LOWKEY customer support assistant.
+- Answer only about LOWKEY and its services.
+- Never invent prices, balances, order statuses, OTP codes, availability, or account information.
+- Never ask for passwords or payment credentials.
+- If the question requires access to private account/order information, say that human support or the customer's LOWKEY account is required.
+- If you do not know the answer from the knowledge provided, say so and recommend contacting LOWKEY support.
+text.includes("otp") ||
+text.includes("sms") ||
+text.includes("number")
+"LOWKEY provides OTP/SMS verification numbers for supported countries and services. Sign in to LOWKEY and open Buy Number to see the current available options.",
+text.includes("marketplace") ||
+text.includes("product") ||
+text.includes("credential")
+"You can browse available digital products from the LOWKEY Marketplace. Sign in, open Marketplace, choose a product, and complete the purchase using your LOWKEY wallet balance.",
+"I can help with LOWKEY's OTP services, marketplace, account, wallet, and general support. If you need help with a specific account or order, human support may be required.",
+
+=== lib/firebase-admin.ts ===
+function getServiceAccount() {
+// Vercel / production
+"Firebase service account file contains invalid JSON."
+"Firebase Admin credentials are not configured."
+const serviceAccount = getServiceAccount();
+credential: cert(serviceAccount),
+
+=== lib/firebase.ts ===
+authDomain: "otp-marketplace.firebaseapp.com",
+projectId: "otp-marketplace",
+storageBucket: "otp-marketplace.firebasestorage.app",
+
+=== lib/referral-reward.ts ===
+export const REFERRAL_MIN_DEPOSIT = 500;
+export const REFERRAL_REWARD = 100;
+export async function applyReferralReward(
+transaction: FirebaseFirestore.Transaction,
+userRef: FirebaseFirestore.DocumentReference,
+paymentReference: string,
+depositAmount: number
+if (depositAmount < REFERRAL_MIN_DEPOSIT) {
+const referrerId = String(
+userData?.referredBy ?? ""
+if (!referrerId) {
+.doc(`${referrerId}_${userRef.id}`);
+const rewardRef = adminDb
+`referral_${referrerId}_${userRef.id}`
+const referrerRef = adminDb
+.doc(referrerId);
+const referralSnap =
+await transaction.get(referralRef);
+const rewardSnap =
+await transaction.get(rewardRef);
+const referrerSnap =
+await transaction.get(referrerRef);
+if (!referralSnap.exists) {
+// This also makes the reward idempotent.
+if (rewardSnap.exists) {
+if (!referrerSnap.exists) {
+"Referrer account not found"
+const referralData =
+referralSnap.data();
+referralData?.status !== "pending"
+const referrerData =
+referrerSnap.data();
+referrerData?.balance ?? 0
+if (!Number.isFinite(currentBalance)) {
+"Referrer wallet balance is invalid"
+transaction.update(referrerRef, {
+currentBalance + REFERRAL_REWARD,
+transaction.update(referralRef, {
+reward: REFERRAL_REWARD,
+qualifyingDeposit: depositAmount,
+rewardReference: paymentReference,
+transaction.set(rewardRef, {
+uid: referrerId,
+type: "referral_reward",
+amount: REFERRAL_REWARD,
+referredUserId: userRef.id,
+paymentReference,
+
+=== lib/whatsapp/knowledge.ts ===
+"LOWKEY is a digital service platform providing OTP/SMS verification services and a digital marketplace.",
+login: "/login",
+buyNumber: "/buy-number",
+marketplace: "/marketplace",
+orders: "/orders",
+transactions: "/transactions",
+profile: "/profile",
+fundWallet: "/fund-wallet",
+otp: {
+"LOWKEY provides OTP/SMS verification numbers for supported countries and services.",
+"Fund the LOWKEY wallet when needed.",
+"Open Buy Number.",
+"Choose the country and service.",
+"Purchase an available number.",
+"Wait for the verification SMS.",
+"Use the received OTP for the intended service.",
+"Availability, pricing, supported countries, and supported services can change. The website should be treated as the current source of truth.",
+marketplace: {
+"LOWKEY also provides a digital marketplace where customers can purchase available digital products.",
+"Open Marketplace.",
+"Choose an available product.",
+"Review the product and price.",
+"Complete the purchase using the LOWKEY wallet balance.",
+"The purchased credential is provided after a successful purchase.",
+"Orders can be viewed from the marketplace order section.",
+referrals: {
+"LOWKEY has a referral program that rewards users for referring new customers.",
+reward:
+"The referral reward is ₦100.",
+"The referred user must make their first successful deposit of ₦500 or more.",
+"Deposits below ₦500 do not qualify for a referral reward.",
+referralCode:
+"Users can get their referral code from the LOWKEY dashboard/referral center.",
+referralLink:
+"Referral links use the format /register?ref=REFERRAL_CODE.",
+"Users can open the Referral Center to view their referral information.",
+email: "lowkeyotpmarketplace@gmail.com",
+login:
+"Customers sign in using their LOWKEY account credentials.",
+forgotPassword:
+"Customers can use Forgot password on the login page to request a password reset email.",
+wallet:
+"LOWKEY uses one wallet balance across supported platform services, including the OTP service and marketplace.",
+support: {
+"Do not invent prices, balances, order statuses, OTP codes, or account information.",
+"Do not request a customer's password.",
+"Do not request sensitive payment credentials.",
+"When the bot cannot verify an account-specific issue, escalate to human support.",
+
+=== lib/whatsapp/reply-engine.ts ===
+| "otp"
+| "marketplace"
+| "wallet"
+| "referral"
+| "order"
+| "support"
+if (/otp|sms|verification|verify|number/.test(text))
+return "otp";
+if (/marketplace|product|credential|buy product/.test(text))
+return "marketplace";
+if (/login|password|account|email|sign in/.test(text))
+if (/order|purchase|bought|buy|transaction|receipt|order status/.test(text))
+return "order";
+if (/wallet|balance|fund|deposit|money/.test(text))
+return "wallet";
+if (/referral|refer|referrer|invite|bonus|reward/.test(text))
+return "referral";
+if (/support|help|problem|issue|contact/.test(text))
+return "support";
+intent === "order" ||
+/my order|my balance|my account|my transaction|check.*order|order.*status|account.*status/.test(
+
+=== OFFICIAL LOWKEY SUPPORT ===
+LOWKEY support email: lowkeyotpmarketplace@gmail.com
+
+=== REFERRAL RULES ===
+Referral reward: ₦100.
+A referred user must make their first successful deposit of ₦500 or more.
+Deposits below ₦500 do not qualify for a referral reward.
+Users can access their referral code and referral center from the LOWKEY account.
