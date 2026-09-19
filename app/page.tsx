@@ -97,8 +97,8 @@ export default function Home() {
         <div className="hidden items-center gap-7 lg:flex">
           <Link href="/" className="text-sm font-semibold text-white">Home</Link>
           <Link href="/all-countries" className="text-sm font-semibold text-white/60 hover:text-white">Countries</Link>
-          <Link href="/marketplace" className="text-sm font-semibold text-white/60 hover:text-white">Marketplace</Link>
-          <Link href="/services/usa" className="text-sm font-semibold text-white/60 hover:text-white">USA Numbers</Link>
+          <button onClick={() => protectedNav("/marketplace")} className="text-sm font-semibold text-white/60 hover:text-white">Marketplace</button>
+          <button onClick={() => protectedNav("/services/usa")} className="text-sm font-semibold text-white/60 hover:text-white">USA Numbers</button>
           <button onClick={() => protectedNav("/buy-number")} className="text-sm font-semibold text-white/60 hover:text-white">
             Buy Number
           </button>
@@ -129,9 +129,9 @@ export default function Home() {
           <div className="grid gap-1">
             <Link href="/" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Home</Link>
             <Link href="/all-countries" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Countries</Link>
-            <Link href="/marketplace" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Marketplace</Link>
-            <Link href="/buy-number" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Buy Number</Link>
-            <Link href="/fund-wallet" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Fund Wallet</Link>
+            <button onClick={() => { setMenuOpen(false); protectedNav("/marketplace"); }} className="rounded-xl px-4 py-3 text-left font-semibold hover:bg-white/5">Marketplace</button>
+            <button onClick={() => { setMenuOpen(false); protectedNav("/buy-number"); }} className="rounded-xl px-4 py-3 text-left font-semibold hover:bg-white/5">Buy Number</button>
+            <button onClick={() => { setMenuOpen(false); protectedNav("/fund-wallet"); }} className="rounded-xl px-4 py-3 text-left font-semibold hover:bg-white/5">Fund Wallet</button>
             <Link href="/login" onClick={() => setMenuOpen(false)} className="mt-2 rounded-xl bg-violet-600 px-4 py-3 text-center font-black">Login</Link>
           </div>
         </div>

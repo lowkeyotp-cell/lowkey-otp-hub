@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ShieldCheck } from "lucide-react";
 
 import {
   signInWithEmailAndPassword,
@@ -28,6 +29,9 @@ export default function LoginPage() {
   const [resettingPassword, setResettingPassword] =
     useState(false);
   const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showUsageNotice, setShowUsageNotice] =
     useState(false);
 
   const [popup, setPopup] = useState<{
@@ -160,15 +164,7 @@ export default function LoginPage() {
         }
       }
 
-      showPopup(
-        "Welcome back",
-        "Login successful. Redirecting you to your dashboard...",
-        "success"
-      );
-
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 900);
+      setShowUsageNotice(true);
 
     } catch (error: any) {
       console.error("Login error:", error);
@@ -221,6 +217,55 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+
+      {showUsageNotice && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-5 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="usage-notice-title"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-violet-500/20 bg-[#0d0915] shadow-2xl shadow-violet-950/40">
+            <div className="border-b border-white/10 px-6 py-5">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600/15 text-violet-300">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+
+              <h2
+                id="usage-notice-title"
+                className="text-xl font-black text-white"
+              >
+                Responsible Use Notice
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-white/60">
+                Please use LOWKEY OTP HUB and all services available on the
+                platform only for legitimate and lawful purposes.
+              </p>
+            </div>
+
+            <div className="px-6 py-5">
+              <p className="text-sm leading-6 text-white/70">
+                Any numbers, verification services, marketplace products,
+                or other services purchased through this platform should be
+                used responsibly and in accordance with applicable laws and
+                the terms of the services you use.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUsageNotice(false);
+                  router.push("/dashboard");
+                }}
+                className="mt-6 w-full rounded-2xl bg-violet-600 px-5 py-3.5 text-sm font-black text-white transition hover:bg-violet-500"
+              >
+                Close & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {popup && (
         <div
