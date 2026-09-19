@@ -3,480 +3,414 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Globe2,
+  Menu,
+  MessageCircle,
+  Package,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  WalletCards,
+  X,
+  Zap,
+} from "lucide-react";
 import { auth } from "@/lib/firebase";
 import FAQSchema from "@/app/components/FAQSchema";
 
 export default function Home() {
-const router = useRouter();
-
-const handleProtectedNavigation = (path: string) => {
-  const user = auth.currentUser;
-
-  if (!user) {
-    router.push("/login");
-    return;
-  }
-
-  router.push(path);
-};
+  const router = useRouter();
   const [adminTap, setAdminTap] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const handleAdminTap = () => {
-    const newTap = adminTap + 1;
-    setAdminTap(newTap);
-
-    if (newTap >= 7) {
-      window.location.href = "/admin-login";
+  const protectedNav = (path: string) => {
+    if (!auth.currentUser) {
+      router.push("/login");
+      return;
     }
-
-    setTimeout(() => {
-      setAdminTap(0);
-    }, 5000);
+    router.push(path);
   };
 
-  return (
-    <main className="min-h-screen bg-[#07111f] text-white overflow-hidden">
-<FAQSchema />
+  const handleAdminTap = () => {
+    const next = adminTap + 1;
+    setAdminTap(next);
 
-      {/* Background glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/20 blur-[100px] rounded-full" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-primary/20 blur-[120px] rounded-full" />
+    if (next >= 7) {
+      window.location.href = "/admin-login";
+      return;
+    }
+
+    setTimeout(() => setAdminTap(0), 5000);
+  };
+
+  const faqs = [
+    {
+      q: "What is LOWKEY OTP HUB?",
+      a: "LOWKEY OTP HUB lets you purchase temporary verification numbers, receive OTP codes and manage your orders from one wallet.",
+    },
+    {
+      q: "How quickly do OTPs arrive?",
+      a: "OTP delivery depends on the selected service and number provider, but the platform is designed around fast delivery and live order updates.",
+    },
+    {
+      q: "Can I use my wallet for multiple services?",
+      a: "Yes. Your wallet is designed to let you fund once and use your balance across available numbers and marketplace services.",
+    },
+    {
+      q: "Is LOWKEY available on mobile?",
+      a: "Yes. The platform is responsive and built to work smoothly on phones, tablets and desktop browsers.",
+    },
+  ];
+
+  return (
+    <main className="min-h-screen overflow-hidden bg-[#05020a] text-white">
+      <FAQSchema />
+
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute left-[-15%] top-[-10%] h-[500px] w-[500px] rounded-full bg-violet-700/20 blur-[130px]" />
+        <div className="absolute right-[-15%] top-[20%] h-[500px] w-[500px] rounded-full bg-fuchsia-600/10 blur-[130px]" />
+        <div className="absolute bottom-[-20%] left-[35%] h-[500px] w-[500px] rounded-full bg-purple-800/10 blur-[130px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.025)_1px,transparent_1px)] bg-[size:45px_45px] [mask-image:linear-gradient(to_bottom,black,transparent_85%)]" />
       </div>
 
-      {/* Navigation */}
-      <nav className="relative z-20 flex items-center justify-between px-5 sm:px-8 py-5 border-b border-white/10 bg-[#07111f]/80 backdrop-blur-xl">
-
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
         <button
           onClick={handleAdminTap}
-          className="text-left active:scale-95 transition"
+          className="flex items-center gap-3 text-left"
+          aria-label="LOWKEY OTP HUB"
         >
-          <div className="text-2xl font-black tracking-tight">
-            Lowkey <span className="text-primary">OTP</span>
-          </div>
-
-          <div className="text-[10px] uppercase tracking-[0.3em] text-gray-500">
-            Marketplace
-          </div>
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-400/30 bg-violet-600/20 shadow-[0_0_35px_rgba(124,58,237,.35)]">
+            <Zap className="h-6 w-6 text-violet-300" fill="currentColor" />
+          </span>
+          <span>
+            <span className="block text-sm font-black tracking-[0.2em]">LOWKEY OTP</span>
+            <span className="block text-[10px] font-bold tracking-[0.35em] text-violet-300">
+              OTP HUB
+            </span>
+          </span>
         </button>
 
-        <div className="hidden md:flex items-center gap-8 text-sm text-gray-300">
-          <Link href="/" className="hover:text-primary transition">
-            Home
-          </Link>
-
-<Link href="/all-countries" className="hover:text-primary transition">
-  Countries
-</Link>
-
-<Link href="/marketplace" className="hover:text-primary transition">
-  Marketplace
-</Link>
-
-<Link href="/services/usa" className="hover:text-primary transition">
-  USA Numbers
-</Link>
-
-          <Link href="/buy-number" className="hover:text-primary transition">
+        <div className="hidden items-center gap-7 lg:flex">
+          <Link href="/" className="text-sm font-semibold text-white">Home</Link>
+          <Link href="/all-countries" className="text-sm font-semibold text-white/60 hover:text-white">Countries</Link>
+          <Link href="/marketplace" className="text-sm font-semibold text-white/60 hover:text-white">Marketplace</Link>
+          <Link href="/services/usa" className="text-sm font-semibold text-white/60 hover:text-white">USA Numbers</Link>
+          <button onClick={() => protectedNav("/buy-number")} className="text-sm font-semibold text-white/60 hover:text-white">
             Buy Number
-          </Link>
+          </button>
+        </div>
 
-          <Link href="/fund-wallet" className="hover:text-primary transition">
-            Fund Wallet
+        <div className="hidden items-center gap-3 lg:flex">
+          <Link href="/login" className="rounded-xl px-4 py-2.5 text-sm font-bold text-white/70 hover:text-white">
+            Login
           </Link>
-
-          <Link href="/notifications" className="hover:text-primary transition">
-            Notifications
+          <Link
+            href="/register"
+            className="rounded-xl bg-white px-5 py-2.5 text-sm font-black text-black shadow-[0_10px_35px_rgba(255,255,255,.12)]"
+          >
+            Get Started
           </Link>
         </div>
 
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden text-2xl w-11 h-11 rounded-2xl bg-white/5 border border-white/10"
+          className="rounded-xl border border-white/10 bg-white/5 p-2.5 lg:hidden"
         >
-          {menuOpen ? "×" : "☰"}
+          {menuOpen ? <X /> : <Menu />}
         </button>
-
       </nav>
 
-     {/* Mobile menu */}
-{menuOpen && (
-  <div className="relative z-30 md:hidden px-5 py-4 bg-[#0b1728] border-b border-white/10">
-    <div className="flex flex-col gap-2">
+      {menuOpen && (
+        <div className="mx-4 rounded-2xl border border-white/10 bg-[#0d0915]/95 p-4 shadow-2xl lg:hidden">
+          <div className="grid gap-1">
+            <Link href="/" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Home</Link>
+            <Link href="/all-countries" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Countries</Link>
+            <Link href="/marketplace" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Marketplace</Link>
+            <Link href="/buy-number" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Buy Number</Link>
+            <Link href="/fund-wallet" onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold hover:bg-white/5">Fund Wallet</Link>
+            <Link href="/login" onClick={() => setMenuOpen(false)} className="mt-2 rounded-xl bg-violet-600 px-4 py-3 text-center font-black">Login</Link>
+          </div>
+        </div>
+      )}
 
-      <Link
-        href="/marketplace"
-        onClick={() => setMenuOpen(false)}
-        className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary font-semibold w-full"
-      >
-        Marketplace
-      </Link>
-
-      <button
-        onClick={() => handleProtectedNavigation("/buy-number")}
-        className="p-4 rounded-2xl bg-white/5 text-left w-full"
-      >
-        Buy Number
-      </button>
-
-      <button
-        onClick={() => handleProtectedNavigation("/fund-wallet")}
-        className="p-4 rounded-2xl bg-white/5 text-left w-full"
-      >
-        Fund Wallet
-      </button>
-
-      <button
-        onClick={() => handleProtectedNavigation("/notifications")}
-        className="p-4 rounded-2xl bg-white/5 text-left w-full"
-      >
-        Notifications
-      </button>
-
-    </div>
-  </div>
-)}
-
-      {/* Hero */}
-      <section className="relative z-10 px-5 sm:px-8 pt-16 sm:pt-24 pb-20">
-
-        <div className="max-w-5xl mx-auto text-center">
-
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary-light text-sm mb-7">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            OTP Marketplace
+      <section className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-20 pt-14 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:pb-28 lg:pt-20">
+        <div>
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-500/10 px-4 py-2 text-xs font-bold text-violet-200">
+            <Sparkles className="h-3.5 w-3.5" />
+            PREMIUM OTP MARKETPLACE
           </div>
 
-          <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[0.95]">
-            Get Your OTP
+          <h1 className="max-w-3xl text-5xl font-black leading-[.95] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
+            OTPs.
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-light to-primary">
-              Number Instantly.
+            <span className="bg-gradient-to-r from-white via-violet-200 to-violet-500 bg-clip-text text-transparent">
+              Numbers.
             </span>
+            <br />
+            Simplified.
           </h1>
 
-          <p className="max-w-2xl mx-auto mt-7 text-gray-400 text-lg sm:text-xl leading-relaxed">
-            Buy temporary numbers for supported services,
-            receive verification codes and manage everything
-            from one simple wallet.
+          <p className="mt-7 max-w-xl text-base leading-7 text-white/55 sm:text-lg">
+            Buy temporary verification numbers, receive OTP codes and manage everything
+            from one powerful wallet — built for speed and simplicity.
           </p>
 
-          {/* Buttons */}
-          <div className="max-w-md mx-auto mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-            <Link href="/register">
-              <button className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-primary text-[#03101d] font-black shadow-xl shadow-primary/10 active:scale-95 transition">
-                Create Account
-              </button>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/register"
+              className="group flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 text-sm font-black text-black shadow-[0_20px_60px_rgba(255,255,255,.12)]"
+            >
+              Create Free Account
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
-
-            <Link href="/login">
-              <button className="w-full py-4 rounded-2xl bg-white/5 border border-white/10 font-bold hover:bg-white/10 active:scale-95 transition">
-                Login
-              </button>
+            <Link
+              href="/buy-number"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-bold text-white backdrop-blur-xl"
+            >
+              Explore Numbers
             </Link>
-
           </div>
 
-          {/* Trust */}
-          <div className="mt-10 flex flex-wrap justify-center gap-5 text-sm text-gray-500">
-            <span>✓ Secure Wallet</span>
-            <span>✓ Live Pricing</span>
-            <span>✓ Fast OTP</span>
+          <div className="mt-8 grid gap-3 text-sm text-white/55 sm:grid-cols-3">
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 text-violet-400" />Fast activation</div>
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 text-violet-400" />Live OTPs</div>
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 text-violet-400" />Secure wallet</div>
           </div>
-
         </div>
 
-      </section>
+        <div className="relative flex min-h-[520px] items-center justify-center [perspective:1400px]">
+          <div className="absolute h-72 w-72 rounded-full bg-violet-600/20 blur-[90px]" />
 
-      {/* Feature cards */}
-      <section className="relative z-10 px-5 sm:px-8 pb-20">
+          <div className="phone-stage relative h-[450px] w-[225px] [transform-style:preserve-3d]">
+            <div className="phone-face absolute inset-0 overflow-hidden rounded-[38px] border-[5px] border-[#24202c] bg-[#08070c] shadow-[0_35px_100px_rgba(0,0,0,.75),0_0_70px_rgba(124,58,237,.25)] [backface-visibility:hidden]">
+              <div className="absolute left-1/2 top-2 z-20 h-6 w-24 -translate-x-1/2 rounded-full bg-black" />
 
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-5">
+              <div className="p-5 pt-12">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[9px] font-bold tracking-[.25em] text-violet-300">LOWKEY</div>
+                    <div className="mt-1 text-lg font-black">Dashboard</div>
+                  </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-500/15">
+                    <Zap className="h-4 w-4 text-violet-300" />
+                  </div>
+                </div>
 
-          <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-7 backdrop-blur-xl">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl mb-5">
-              ₦
+                <div className="mt-6 rounded-3xl border border-white/10 bg-gradient-to-br from-violet-700 to-purple-950 p-5 shadow-[0_20px_50px_rgba(91,33,182,.35)]">
+                  <div className="text-[9px] uppercase tracking-widest text-white/60">Available balance</div>
+                  <div className="mt-2 text-2xl font-black">₦25,480</div>
+                  <div className="mt-6 flex justify-between text-[9px] text-white/55">
+                    <span>LOWKEY WALLET</span>
+                    <span>•••• 8291</span>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  {[
+                    ["Buy Number", Smartphone],
+                    ["Get OTP", Zap],
+                    ["Orders", Package],
+                    ["Wallet", WalletCards],
+                  ].map(([label, Icon]) => (
+                    <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/[.04] p-3">
+                      <Icon className="h-4 w-4 text-violet-300" />
+                      <div className="mt-2 text-[10px] font-bold">{String(label)}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-white/[.03] p-3">
+                  <div className="text-[8px] uppercase tracking-widest text-white/35">Recent order</div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="text-[10px] font-bold">USA • WhatsApp</div>
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[8px] font-bold text-emerald-400">ACTIVE</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <h2 className="text-xl font-bold">
-              Simple Wallet
-            </h2>
-
-            <p className="text-gray-500 mt-3 leading-relaxed">
-              Fund your wallet securely and use your
-              balance whenever you need an OTP number.
-            </p>
-          </div>
-
-          <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-7 backdrop-blur-xl">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-2xl mb-5">
-              ⚡
+            <div className="phone-face absolute inset-0 overflow-hidden rounded-[38px] border-[5px] border-[#24202c] bg-gradient-to-br from-[#17101f] via-[#09070d] to-[#211032] p-6 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+              <div className="absolute left-6 top-7 h-20 w-20 rounded-[22px] bg-black p-3 shadow-2xl">
+                <div className="grid grid-cols-2 gap-2">
+                  <span className="h-6 w-6 rounded-full bg-[#25212d]" />
+                  <span className="h-6 w-6 rounded-full bg-[#25212d]" />
+                  <span className="h-6 w-6 rounded-full bg-[#25212d]" />
+                  <span className="h-6 w-6 rounded-full bg-[#25212d]" />
+                </div>
+              </div>
+              <div className="absolute inset-x-0 bottom-16 text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-violet-400/20 bg-violet-500/10 shadow-[0_0_60px_rgba(124,58,237,.25)]">
+                  <Zap className="h-10 w-10 text-violet-300" fill="currentColor" />
+                </div>
+                <div className="mt-5 text-xl font-black tracking-[.15em]">LOWKEY</div>
+                <div className="mt-1 text-[9px] font-bold tracking-[.35em] text-violet-300">OTP HUB</div>
+              </div>
             </div>
-
-            <h2 className="text-xl font-bold">
-              Fast Delivery
-            </h2>
-
-            <p className="text-gray-500 mt-3 leading-relaxed">
-              Choose your country and service,
-              purchase a number and receive the OTP.
-            </p>
           </div>
-
-          <div className="rounded-3xl bg-white/[0.04] border border-white/10 p-7 backdrop-blur-xl">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-2xl mb-5">
-              🔐
-            </div>
-
-            <h2 className="text-xl font-bold">
-              Built For Developers
-            </h2>
-
-            <p className="text-gray-500 mt-3 leading-relaxed">
-              A clean marketplace experience for
-              verification and testing workflows.
-            </p>
-          </div>
-
         </div>
-
       </section>
 
-      {/* How it works */}
-      <section className="relative z-10 px-5 sm:px-8 py-20 border-y border-white/10 bg-white/[0.02]">
-
-        <div className="max-w-5xl mx-auto">
-
-          <div className="text-center mb-12">
-
-            <p className="text-primary text-sm font-bold uppercase tracking-widest">
-              How it works
-            </p>
-
-            <h2 className="text-3xl sm:text-4xl font-black mt-3">
-              Get started in three steps
-            </h2>
-
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-5">
-
-            <div className="bg-[#0b1728] border border-white/10 rounded-3xl p-7">
-              <span className="text-5xl font-black text-white/10">
-                01
-              </span>
-
-              <h3 className="text-xl font-bold mt-5">
-                Create an account
-              </h3>
-
-              <p className="text-gray-500 mt-3">
-                Register and verify your email to access
-                your marketplace dashboard.
-              </p>
+      <section className="border-y border-white/5 bg-white/[.015]">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-5 py-10 sm:grid-cols-4 lg:px-8">
+          {[
+            ["24/7", "Platform access"],
+            ["150+", "Countries"],
+            ["Fast", "OTP delivery"],
+            ["₦", "Wallet payments"],
+          ].map(([big, small]) => (
+            <div key={small} className="text-center">
+              <div className="text-2xl font-black sm:text-3xl">{big}</div>
+              <div className="mt-1 text-xs text-white/40">{small}</div>
             </div>
-
-            <div className="bg-[#0b1728] border border-white/10 rounded-3xl p-7">
-              <span className="text-5xl font-black text-white/10">
-                02
-              </span>
-
-              <h3 className="text-xl font-bold mt-5">
-                Fund your wallet
-              </h3>
-
-              <p className="text-gray-500 mt-3">
-                Add funds securely and keep your balance
-                ready for purchases.
-              </p>
-            </div>
-
-            <div className="bg-[#0b1728] border border-white/10 rounded-3xl p-7">
-              <span className="text-5xl font-black text-white/10">
-                03
-              </span>
-
-              <h3 className="text-xl font-bold mt-5">
-                Buy your number
-              </h3>
-
-              <p className="text-gray-500 mt-3">
-                Select a country and supported service,
-                then receive your verification code.
-              </p>
-            </div>
-
-          </div>
-
+          ))}
         </div>
-
       </section>
 
-      {/* CTA */}
-      <section className="relative z-10 px-5 sm:px-8 py-20">
-
-        <div className="max-w-4xl mx-auto rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/10 p-8 sm:p-12 text-center">
-
-          <h2 className="text-3xl sm:text-5xl font-black">
-            Ready to get started?
+      <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
+        <div className="max-w-2xl">
+          <div className="text-xs font-black tracking-[.25em] text-violet-400">BUILT FOR SPEED</div>
+          <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">
+            Everything you need in one place.
           </h2>
-
-          <p className="text-gray-400 mt-4">
-            Create your account and start using Lowkey OTP.
+          <p className="mt-4 text-white/45">
+            A clean workflow from funding your wallet to receiving the verification code.
           </p>
-
-          <Link href="/register">
-            <button className="mt-8 px-8 py-4 rounded-2xl bg-white text-black font-black active:scale-95 transition">
-              Get Started
-            </button>
-          </Link>
-
         </div>
 
+        <div className="mt-10 grid gap-4 md:grid-cols-2">
+          {[
+            [WalletCards, "Smart Wallet", "Fund once and manage your available balance from a simple wallet."],
+            [Globe2, "Global Numbers", "Browse available countries and services from one marketplace."],
+            [Zap, "Fast OTPs", "Track active orders and retrieve verification codes from your dashboard."],
+            [ShieldCheck, "Secure Access", "Authentication and protected account areas keep your marketplace experience organized."],
+          ].map(([Icon, title, text]) => (
+            <div
+              key={String(title)}
+              className="group rounded-3xl border border-white/10 bg-white/[.035] p-7 transition hover:-translate-y-1 hover:border-violet-400/25 hover:bg-violet-500/[.04]"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-300">
+                <Icon className="h-6 w-6" />
+              </div>
+              <h3 className="mt-6 text-xl font-black">{String(title)}</h3>
+              <p className="mt-2 text-sm leading-6 text-white/45">{String(text)}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
-{/* Explore */}
-<section className="relative z-10 px-5 pb-20">
-  <div className="max-w-4xl mx-auto">
-
-    <h2 className="text-2xl sm:text-3xl font-black text-center">
-      Explore LOWKEY OTP
-    </h2>
-
-    <p className="text-gray-500 text-center mt-3">
-      Browse supported countries and available OTP services.
-    </p>
-
-    <div className="grid sm:grid-cols-2 gap-4 mt-8">
-
-      <Link
-        href="/all-countries"
-        className="rounded-2xl bg-white/[0.04] border border-white/10 p-6 hover:bg-white/[0.08] transition"
-      >
-        <h3 className="font-bold text-lg">
-          All Countries
-        </h3>
-
-        <p className="text-gray-500 text-sm mt-2">
-          Explore supported countries and OTP options.
-        </p>
-      </Link>
-
-      <Link
-        href="/services/usa"
-        className="rounded-2xl bg-white/[0.04] border border-white/10 p-6 hover:bg-white/[0.08] transition"
-      >
-        <h3 className="font-bold text-lg">
-          USA OTP Numbers
-        </h3>
-
-        <p className="text-gray-500 text-sm mt-2">
-          View available USA verification services.
-        </p>
-      </Link>
-
-    </div>
-
-  </div>
-</section>
-
-{/* FAQ */}
-<section className="relative z-10 px-5 pb-20">
-  <div className="max-w-4xl mx-auto">
-
-    <h2 className="text-3xl sm:text-4xl font-black text-center">
-      Frequently Asked Questions
-    </h2>
-
-    <p className="text-gray-500 text-center mt-3">
-      Common questions about LOWKEY OTP.
-    </p>
-
-    <div className="mt-8 space-y-4">
-
-      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
-        <summary className="font-bold cursor-pointer">
-          What is LOWKEY OTP?
-        </summary>
-        <p className="text-gray-500 mt-3 leading-relaxed">
-          LOWKEY OTP is an online marketplace for supported temporary
-          phone numbers and verification codes.
-        </p>
-      </details>
-
-      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
-        <summary className="font-bold cursor-pointer">
-          How do I buy a number?
-        </summary>
-        <p className="text-gray-500 mt-3 leading-relaxed">
-          Create an account, fund your wallet, choose a supported
-          country and service, then purchase an available number.
-        </p>
-      </details>
-
-      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
-        <summary className="font-bold cursor-pointer">
-          Which countries are supported?
-        </summary>
-        <p className="text-gray-500 mt-3 leading-relaxed">
-          Supported countries and available services can change based
-          on current availability. Visit the All Countries page to see
-          available options.
-        </p>
-      </details>
-
-      <details className="rounded-2xl bg-white/[0.04] border border-white/10 p-6">
-        <summary className="font-bold cursor-pointer">
-          How long does an OTP order remain active?
-        </summary>
-        <p className="text-gray-500 mt-3 leading-relaxed">
-          OTP orders have a limited active period. The countdown shown
-          on the order page indicates the remaining time.
-        </p>
-      </details>
-
-    </div>
-
-  </div>
-</section>
-
-      {/* Contact */}
-      <section className="relative z-10 px-5 pb-20 text-center">
-
-        <p className="text-gray-500 text-sm mb-3">
-          Need help?
-        </p>
-
-        <a
-          href="https://wa.me/2347038167338"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 font-bold hover:bg-green-500/20 transition"
-        >
-          <span className="text-xl">💬</span>
-          Chat on WhatsApp
-        </a>
-
+      <section className="mx-5 overflow-hidden rounded-[32px] border border-violet-400/15 bg-gradient-to-br from-violet-700/20 via-[#12091d] to-[#07050b] lg:mx-auto lg:max-w-7xl">
+        <div className="relative px-7 py-14 text-center sm:px-12 sm:py-20">
+          <div className="absolute left-1/2 top-0 h-40 w-80 -translate-x-1/2 rounded-full bg-violet-600/20 blur-[90px]" />
+          <div className="relative">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+              <Sparkles className="h-6 w-6 text-violet-300" />
+            </div>
+            <h2 className="mx-auto mt-6 max-w-2xl text-3xl font-black tracking-tight sm:text-5xl">
+              Ready to make OTPs simple?
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/45">
+              Create your LOWKEY account and start exploring available numbers and services.
+            </p>
+            <Link
+              href="/register"
+              className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-white px-7 py-4 text-sm font-black text-black"
+            >
+              Create Account
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 px-5 py-8 text-center">
+      <section className="mx-auto max-w-3xl px-5 py-20 lg:py-28">
+        <div className="text-center">
+          <div className="text-xs font-black tracking-[.25em] text-violet-400">FAQ</div>
+          <h2 className="mt-3 text-3xl font-black">Questions, answered.</h2>
+        </div>
 
-        <button
-          onClick={handleAdminTap}
-          className="font-bold text-gray-400"
-        >
-          Lowkey <span className="text-primary">OTP</span>
-        </button>
+        <div className="mt-8 space-y-3">
+          {faqs.map((faq, index) => (
+            <div key={faq.q} className="rounded-2xl border border-white/10 bg-white/[.03]">
+              <button
+                onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                className="flex w-full items-center justify-between gap-4 p-5 text-left"
+              >
+                <span className="text-sm font-bold">{faq.q}</span>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-white/40 transition ${openFaq === index ? "rotate-180" : ""}`} />
+              </button>
+              {openFaq === index && (
+                <div className="px-5 pb-5 text-sm leading-6 text-white/45">
+                  {faq.a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
 
-        <p className="text-gray-600 text-xs mt-2">
-          Secure OTP marketplace
-        </p>
+      <section className="border-t border-white/5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-12 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+          <div>
+            <div className="text-lg font-black">Need help?</div>
+            <div className="mt-1 text-sm text-white/40">Reach LOWKEY support on WhatsApp.</div>
+          </div>
+          <a
+            href="https://wa.me/2347038167338"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-5 py-3 text-sm font-bold text-emerald-300"
+          >
+            <MessageCircle className="h-4 w-4" />
+            WhatsApp Support
+          </a>
+        </div>
+      </section>
 
+      <footer className="border-t border-white/5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-8 text-xs text-white/30 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+          <div>© {new Date().getFullYear()} LOWKEY OTP HUB. All rights reserved.</div>
+          <div className="flex gap-5">
+            <Link href="/login" className="hover:text-white">Login</Link>
+            <Link href="/register" className="hover:text-white">Register</Link>
+            <Link href="/all-countries" className="hover:text-white">Countries</Link>
+          </div>
+        </div>
       </footer>
 
+      <style jsx global>{`
+        .phone-stage {
+          animation: phoneRoll 10s linear infinite;
+          transform-style: preserve-3d;
+        }
+
+        @keyframes phoneRoll {
+          0% {
+            transform: rotateY(0deg) rotateX(4deg) translateY(0);
+          }
+          25% {
+            transform: rotateY(90deg) rotateX(-2deg) translateY(-8px);
+          }
+          50% {
+            transform: rotateY(180deg) rotateX(4deg) translateY(0);
+          }
+          75% {
+            transform: rotateY(270deg) rotateX(-2deg) translateY(-8px);
+          }
+          100% {
+            transform: rotateY(360deg) rotateX(4deg) translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .phone-stage {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
