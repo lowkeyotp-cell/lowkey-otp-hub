@@ -1,138 +1,178 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
-export async function GET(req: Request) {
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request) {
   try {
+    const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
-    if (!cronSecret) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "CRON_SECRET is not configured.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const authorization = req.headers.get("authorization");
-
-    if (authorization !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized.",
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const now = Date.now();
+    const now = new Date();
 
-    const ordersSnap = await adminDb
+    const snapshot = await adminDb
       .collection("orders")
       .where("status", "==", "waiting")
+      .where("expiresAt", "<=", now)
+      .limit(50)
       .get();
 
-    const expiredOrders: string[] = [];
+    let processed = 0;
+    let expired = 0;
+    let skipped = 0;
 
-    for (const orderDoc of ordersSnap.docs) {
-      const data = orderDoc.data();
+    for (const doc of snapshot.docs) {
+      processed++;
 
-      const expiresAt = data.expiresAt?.toDate?.();
+      const order = doc.data();
+      const orderId = order.orderId;
+      const uid = order.uid;
 
-      if (!expiresAt) {
+      if (!orderId || !uid) {
+        skipped++;
         continue;
       }
 
-      if (expiresAt.getTime() <= now) {
-        const orderId = String(data.orderId ?? "").trim();
-
-        if (orderId) {
-          expiredOrders.push(orderId);
-        }
-      }
-    }
-
-    if (expiredOrders.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: "No expired orders found.",
-        processed: 0,
-      });
-    }
-
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : null);
-
-    if (!baseUrl) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Application URL is not configured.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const results: Array<{
-      orderId: string;
-      success: boolean;
-      message?: string;
-    }> = [];
-
-    for (const orderId of expiredOrders) {
       try {
-        const response = await fetch(
-          `${baseUrl}/api/expire-order`,
+        const apiKey = process.env.SMSPOOL_API_KEY;
+
+        if (!apiKey) {
+          console.error("SMSPOOL_API_KEY is not configured.");
+          skipped++;
+          continue;
+        }
+
+        const cancelForm = new FormData();
+        cancelForm.append("key", apiKey);
+        cancelForm.append("orderid", String(orderId));
+
+        const smsPoolResponse = await fetch(
+          "https://api.smspool.net/sms/cancel",
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${cronSecret}`,
-            },
-            body: JSON.stringify({ orderId }),
+            body: cancelForm,
             cache: "no-store",
           }
         );
 
-        const result = await response.json();
+        const smsPoolData = await smsPoolResponse.json();
 
-        results.push({
-          orderId,
-          success: Boolean(result.success),
-          message: result.message,
+        console.log(
+          `V2 cron SMSPool expiry cancel response for ${orderId}:`,
+          smsPoolData
+        );
+
+        if (
+          !smsPoolData ||
+          Number(smsPoolData.success) !== 1
+        ) {
+          console.error(
+            `SMSPool could not cancel expired order ${orderId}:`,
+            smsPoolData
+          );
+          skipped++;
+          continue;
+        }
+
+        const result = await adminDb.runTransaction(async (transaction) => {
+          const orderRef = adminDb.collection("orders").doc(doc.id);
+          const userRef = adminDb.collection("users").doc(uid);
+          const refundRef = adminDb
+            .collection("platformTransactions")
+            .doc(`refund_${orderId}`);
+
+          const [freshOrderSnap, userSnap, refundSnap] = await Promise.all([
+            transaction.get(orderRef),
+            transaction.get(userRef),
+            transaction.get(refundRef),
+          ]);
+
+          if (!freshOrderSnap.exists) {
+            return { status: "missing" };
+          }
+
+          const freshOrder = freshOrderSnap.data() || {};
+
+          if (freshOrder.status !== "waiting") {
+            return { status: "already_processed" };
+          }
+
+          if (refundSnap.exists) {
+            return { status: "already_refunded" };
+          }
+
+          if (!userSnap.exists) {
+            return { status: "user_missing" };
+          }
+
+          const refundAmount = Number(freshOrder.price || 0);
+          const userData = userSnap.data() || {};
+          const currentBalance = Number(userData.balance || 0);
+
+          if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+            return { status: "invalid_refund" };
+          }
+
+          transaction.update(userRef, {
+            balance: currentBalance + refundAmount,
+          });
+
+          transaction.update(orderRef, {
+            status: "expired",
+            expiredAt: new Date(),
+            refundAmount,
+            expiredAutomatically: true,
+          });
+
+          transaction.set(refundRef, {
+            uid,
+            orderId,
+            type: "refund",
+            amount: refundAmount,
+            status: "completed",
+            createdAt: new Date(),
+            createdBy: "v2-auto-expiry-cron",
+            smsPoolCancelled: true,
+          });
+
+          return {
+            status: "expired",
+            refundAmount,
+          };
         });
+
+        if (result.status === "expired") {
+          expired++;
+        } else {
+          skipped++;
+        }
       } catch (error) {
-        results.push({
-          orderId,
-          success: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to process order.",
-        });
+        console.error(`Failed to expire order ${orderId}:`, error);
+        skipped++;
       }
     }
 
     return NextResponse.json({
       success: true,
-      processed: results.length,
-      results,
+      processed,
+      expired,
+      skipped,
+      checkedAt: now.toISOString(),
     });
   } catch (error) {
-    console.error(
-      "Automatic expiration scanner error:",
-      error
-    );
+    console.error("Cron expiry error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Expiration scanner failed.",
+        message: "Failed to process expired orders.",
       },
       { status: 500 }
     );
